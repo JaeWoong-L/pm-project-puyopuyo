@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+D3DWindower/
+D3DWindower.zip
+puyo2/
+puyo2.zip
