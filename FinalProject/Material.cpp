@@ -1,10 +1,10 @@
 #include "Material.h"
 
 Material::Material() {
-	setEmission(0.05, 0.05, 0.05, 1.0);
-	setAmbient(1.0, 1.0, 1.0, 1.0);
-	setDiffuse(1.0, 1.0, 1.0, 1.0);
-	setSpecular(1.0, 1.0, 1.0, 1.0);
+	setEmission(0.05f, 0.05f, 0.05f, 1.0f);
+	setAmbient(1.0f, 1.0f, 1.0f, 1.0f);
+	setDiffuse(1.0f, 1.0f, 1.0f, 1.0f);
+	setSpecular(1.0f, 1.0f, 1.0f, 1.0f);
 	setShininess(50.0);
 }
 

@@ -10,6 +10,7 @@
 #include "Light.h"
 #include "Sphere.h"
 #include "Board.h"
+#include "Texture.h"
 
 using namespace std;
 
@@ -50,6 +51,7 @@ vector<Sphere> arrangedPuyos;
 
 Light light(boundaryX/2, boundaryX, boundaryX, GL_LIGHT0);
 Material red, green, blue, yellow, purple;
+Texture texture;
 
 clock_t start_t = clock(), end_t;
 clock_t blinkStart_t = clock(), blinkEnd_t;
@@ -162,6 +164,9 @@ void initialize() {
 	purple.setAmbient(1, 0, 1, 0);
 
 	//init startPuyo & nextPuyo
+	string filename = "background.jpg";
+	texture.initializeTexture(filename.c_str());
+
 	createPuyos();
 }
 
@@ -176,12 +181,12 @@ void idle() {
 
 	//move down startPuyo
 	end_t = clock();
-	if ((end_t - start_t) > CLOCKS_PER_SEC * 2) {
-		//for (int i = 0; i < 2; i++) {
-		//	startPuyo[i].setCenter(startPuyo[i].getCenter()[0] + startPuyo[i].getVelocity()[0],
-		//		startPuyo[i].getCenter()[1] + startPuyo[i].getVelocity()[1],
-		//		startPuyo[i].getCenter()[2] + startPuyo[i].getVelocity()[2]);
-		//}
+	if ((end_t - start_t) > CLOCKS_PER_SEC) {
+		for (int i = 0; i < 2; i++) {
+			startPuyo[i].setCenter(startPuyo[i].getCenter()[0] + startPuyo[i].getVelocity()[0],
+				startPuyo[i].getCenter()[1] + startPuyo[i].getVelocity()[1],
+				startPuyo[i].getCenter()[2] + startPuyo[i].getVelocity()[2]);
+		}
 		createPuyos();
 
 		start_t = end_t;
@@ -203,13 +208,10 @@ void display() {
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
-	/**********************
-	Display Characters
-	1. score
-	2. key instructions
-	3. 
-	**********************/
-	//1.score
+	//Background
+	texture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
+
+	//Score Characters
 	string score_str = to_string(board.getScore());
 	string str = "      ";
 	for (auto i = 0; i < score_str.size(); i++) {
@@ -219,18 +221,13 @@ void display() {
 	float color[3] = { 1, 1, 0 };
 	displayCharacters(GLUT_BITMAP_TIMES_ROMAN_10, color, str, -boundaryX + PIXEL_SIZE / 2, boundaryY - PIXEL_SIZE);
 
-	//2.key instructions
+	//Key Instructions
+	
 
-	/**********************
-	Display Components
-	1. board
-	2. puyos
-	3. textures(keypad)
-	**********************/
-	//1.board
+	//Board
 	board.draw(WIDTH, HEIGHT);
 
-	//2.puyos
+	//Puyos
 	if(isIndicatorOn)
 		drawCircle(startPuyo[1].getCenter());
 	glEnable(GL_LIGHTING);
@@ -244,8 +241,6 @@ void display() {
 	glDisable(GL_DEPTH_TEST);
 	glDisable(light.getLightID());
 	glDisable(GL_LIGHTING);
-
-	//3.textures
 
 	glutSwapBuffers();
 }
