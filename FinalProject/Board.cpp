@@ -33,7 +33,7 @@ void Board::draw(const int width, const int height) const {
 
 	glPushMatrix();
 
-	glTranslatef(-width/2 + pixelSize, height/2 - pixelSize, 0);
+	glTranslatef(-3 * pixelSize, 6 * pixelSize, 0);
 	for (int i = 0; i < 12; i++) {
 		for (int j = 0; j < 6; j++) {
 			
