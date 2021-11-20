@@ -14,9 +14,9 @@
 
 using namespace std;
 
-// 8:15 비율 8:5  1200:750 120 960 
-#define WIDTH 960
-#define HEIGHT 600
+// 8:15 비율 8:5  1080 : 675
+#define WIDTH 1080
+#define HEIGHT 675
 #define PIXEL_SIZE 40 // 한 칸 : 40
 #define RADIUS PIXEL_SIZE/2 // 반지름: 20
 
@@ -24,7 +24,7 @@ using namespace std;
 #define boundaryY HEIGHT/2
 
 #define PI 3.141592
-#define SEG 360
+#define SEG 180
 
 enum Color {
 	RED,
@@ -51,8 +51,7 @@ vector<Sphere> arrangedPuyos;
 
 Light light(boundaryX/2, boundaryX, boundaryX, GL_LIGHT0);
 Material red, green, blue, yellow, purple;
-Texture texture;
-Texture texture2;
+Texture backgroundTexture, boardTexture, frameTexture;
 
 clock_t start_t = clock(), end_t;
 clock_t blinkStart_t = clock(), blinkEnd_t;
@@ -88,23 +87,22 @@ void generateRandomColor(Sphere &s, int max) {
 
 void drawCircle(const float center[3]) {
 	/* Implement: draw all circles */
-	glColor3f(1.0f, 1.0f, 1.0f);
-	glLineWidth(4.0f);
+	glColor3f(0.7f, 0.7f, 0.7f);
+	glLineWidth(2.0f);
 	glBegin(GL_LINE_LOOP);
 	for (int i = 0; i <= SEG; i++) {
 		float angle = i * (2 * PI / SEG);
-		float dx = (RADIUS) * cos(angle);
-		float dy = (RADIUS) * sin(angle);
+		float dx = (RADIUS + 0.5) * cos(angle);
+		float dy = (RADIUS + 0.5) * sin(angle);
 		glVertex3f(center[0] + dx, center[1] + dy, center[2] + 1);
 	}
 	glEnd();
 }
 
 void createPuyos() {
-	float startPuyoPos[2][2] = { {-boundaryX + 3 * PIXEL_SIZE + PIXEL_SIZE / 2, boundaryY - PIXEL_SIZE - PIXEL_SIZE / 2},
-								 {-boundaryX + 3 * PIXEL_SIZE + PIXEL_SIZE / 2, boundaryY - 2 * PIXEL_SIZE - PIXEL_SIZE / 2} };
-	float nextPuyoPos[2][2] = { {-boundaryX + 3 * PIXEL_SIZE + PIXEL_SIZE / 2, boundaryY - PIXEL_SIZE / 2},
-								 {-boundaryX + 4 * PIXEL_SIZE + PIXEL_SIZE / 2, boundaryY - PIXEL_SIZE / 2} };
+	float startPuyoPos[2][2] = { { -RADIUS, 6 * PIXEL_SIZE - RADIUS }, {RADIUS, 6 * PIXEL_SIZE - RADIUS } };
+	float nextPuyoPos[2][2] = { { 0, 7 * PIXEL_SIZE + RADIUS },
+								{ 0, 7 * PIXEL_SIZE - RADIUS } };
 
 	if (startPuyo.empty() && nextPuyo.empty()) { //initialize
 		Sphere S1(RADIUS, 20, 20), S2(RADIUS, 20, 20);
@@ -165,11 +163,14 @@ void initialize() {
 	purple.setAmbient(1, 0, 1, 0);
 
 	//init startPuyo & nextPuyo
-	string filename = "background_christmas_dark.png";
-	texture.initializeTexture(filename.c_str());
+	string backgroundImg = "background_christmas_cartoon.jpg";
+	backgroundTexture.initializeTexture(backgroundImg.c_str());
 
-	string filename2 = "background_christmas_vertical.jpg";
-	texture2.initializeTexture(filename2.c_str());
+	string boardImg = "background_board.png";
+	boardTexture.initializeTexture(boardImg.c_str());
+
+	string frameImg = "frame_brown.png";
+	frameTexture.initializeTexture(frameImg.c_str());
 
 	createPuyos();
 }
@@ -187,11 +188,22 @@ void idle() {
 	end_t = clock();
 	if ((end_t - start_t) > CLOCKS_PER_SEC) {
 		for (int i = 0; i < 2; i++) {
+			if (startPuyo[i].getCenter()[1] - RADIUS <= -6 * PIXEL_SIZE) {
+				startPuyo[0].setVelocity(0, 0, 0);
+				startPuyo[1].setVelocity(0, 0, 0);
+
+				arrangedPuyos.push_back(startPuyo[0]);
+				arrangedPuyos.push_back(startPuyo[1]);
+
+				createPuyos();
+				break;
+			}
+
 			startPuyo[i].setCenter(startPuyo[i].getCenter()[0] + startPuyo[i].getVelocity()[0],
 				startPuyo[i].getCenter()[1] + startPuyo[i].getVelocity()[1],
 				startPuyo[i].getCenter()[2] + startPuyo[i].getVelocity()[2]);
 		}
-		createPuyos();
+		//createPuyos();
 
 		start_t = end_t;
 	}
@@ -212,9 +224,10 @@ void display() {
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();*/
 
-	//Background
-	texture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
-	texture2.drawSquareWithTexture(-3 * PIXEL_SIZE, -6 * PIXEL_SIZE, 3 * PIXEL_SIZE, 6 * PIXEL_SIZE);
+	//Textures
+	backgroundTexture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
+	frameTexture.drawSquareWithTexture(-3 * PIXEL_SIZE - 30, -6 * PIXEL_SIZE - 30, 3 * PIXEL_SIZE + 30, 6 * PIXEL_SIZE + 30);
+	//boardTexture.drawSquareWithTexture(-3 * PIXEL_SIZE, -6 * PIXEL_SIZE, 3 * PIXEL_SIZE, 6 * PIXEL_SIZE);
 
 	//Score Characters
 	string score_str = to_string(board.getScore());
@@ -233,8 +246,6 @@ void display() {
 	//board.draw(WIDTH, HEIGHT);
 
 	//Puyos
-	if(isIndicatorOn)
-		drawCircle(startPuyo[1].getCenter());
 	glEnable(GL_LIGHTING);
 	glEnable(light.getLightID());
 	glEnable(GL_DEPTH_TEST);
@@ -243,9 +254,13 @@ void display() {
 		startPuyo[i].draw();
 		nextPuyo[i].draw();
 	}
+	for (const Sphere& puyo : arrangedPuyos)
+		puyo.draw();
 	glDisable(GL_DEPTH_TEST);
 	glDisable(light.getLightID());
 	glDisable(GL_LIGHTING);
+	if (isIndicatorOn)
+		drawCircle(startPuyo[1].getCenter());
 
 	glutSwapBuffers();
 }
@@ -267,15 +282,46 @@ void keyboardUp(unsigned char key, int x, int y) {
 }
 
 void specialKeyDown(int key, int x, int y) {
+	bool movable = true;
+
 	switch (key) {
 	case GLUT_KEY_UP: // CCW rotation
+		break;
+	case GLUT_KEY_DOWN:
+		for (const Sphere& puyo : startPuyo) {
+			if (puyo.getCenter()[1] - RADIUS <= -6 * PIXEL_SIZE) {
+				movable = false;
+				break;
+			}
+		}
 
+		if (movable)
+			for (Sphere& puyo : startPuyo)
+				puyo.manualMove(key, PIXEL_SIZE);
 		break;
-	case GLUT_KEY_DOWN: // move down(one pixel)
+	case GLUT_KEY_LEFT: 
+		for (const Sphere& puyo : startPuyo) {
+			if (puyo.getCenter()[0] - RADIUS <= -3 * PIXEL_SIZE) {
+				movable = false;
+				break;
+			}
+		}
+
+		if (movable)
+			for (Sphere& puyo : startPuyo)
+				puyo.manualMove(key, PIXEL_SIZE);
 		break;
-	case GLUT_KEY_LEFT: // move left(one pixel)
-		break;
-	case GLUT_KEY_RIGHT: // move right(one pixel)
+	case GLUT_KEY_RIGHT:
+		for (const Sphere& puyo : startPuyo) {
+			if (puyo.getCenter()[0] + RADIUS >= 3 * PIXEL_SIZE) {
+				movable = false;
+				break;
+			}
+		}
+
+		if (movable)
+			for (Sphere& puyo : startPuyo)
+				puyo.manualMove(key, PIXEL_SIZE);
 		break;
 	default:
 		break;
