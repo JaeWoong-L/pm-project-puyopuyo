@@ -18,6 +18,7 @@ public:
 	const float* getVelocity() const;
 	void setMTL(const Material& m);
 	void move();
+	void manualMove(int key, int pixelSize);
 	void draw() const;
 
 private:

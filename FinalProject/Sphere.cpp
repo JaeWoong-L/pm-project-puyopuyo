@@ -60,6 +60,22 @@ void Sphere::move() {
 	center[2] += velocity[2];
 }
 
+void Sphere::manualMove(int key, int pixelSize) {
+	switch (key) {
+	case GLUT_KEY_LEFT:
+		center[0] -= pixelSize;
+		break;
+	case GLUT_KEY_RIGHT:
+		center[0] += pixelSize;
+		break;
+	case GLUT_KEY_DOWN:
+		center[1] -= pixelSize / 2;
+		break;
+	default:
+		break;
+	}
+}
+
 void Sphere::draw() const {
 	glPushMatrix();
 
