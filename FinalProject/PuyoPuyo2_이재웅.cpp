@@ -14,11 +14,11 @@
 
 using namespace std;
 
-// 8:15 비율
-#define WIDTH 320
+// 8:15 비율 8:5  1200:750 120 960 
+#define WIDTH 960
 #define HEIGHT 600
-#define PIXEL_SIZE WIDTH/8 // 한 칸 : 40
-#define RADIUS PIXEL_SIZE/2 - 0.5 // 반지름: 20 - 0.5
+#define PIXEL_SIZE 40 // 한 칸 : 40
+#define RADIUS PIXEL_SIZE/2 // 반지름: 20
 
 #define boundaryX WIDTH/2
 #define boundaryY HEIGHT/2
@@ -27,7 +27,7 @@ using namespace std;
 #define SEG 360
 
 enum Color {
-	RED = 1,
+	RED,
 	GREEN,
 	BLUE,
 	YELLOW,
@@ -52,13 +52,14 @@ vector<Sphere> arrangedPuyos;
 Light light(boundaryX/2, boundaryX, boundaryX, GL_LIGHT0);
 Material red, green, blue, yellow, purple;
 Texture texture;
+Texture texture2;
 
 clock_t start_t = clock(), end_t;
 clock_t blinkStart_t = clock(), blinkEnd_t;
 bool isIndicatorOn = true;
 
 void generateRandomColor(Sphere &s, int max) {
-	int color = rand() % max + 1;
+	int color = rand() % max;
 	switch (color) {
 	case RED:
 		s.setMTL(red);
@@ -164,8 +165,11 @@ void initialize() {
 	purple.setAmbient(1, 0, 1, 0);
 
 	//init startPuyo & nextPuyo
-	string filename = "background.jpg";
+	string filename = "background_christmas_dark.png";
 	texture.initializeTexture(filename.c_str());
+
+	string filename2 = "background_christmas_vertical.jpg";
+	texture2.initializeTexture(filename2.c_str());
 
 	createPuyos();
 }
@@ -201,15 +205,16 @@ void display() {
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glMatrixMode(GL_PROJECTION);
+	/*glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(-boundaryX, boundaryX, -boundaryY, boundaryY, -100.0, 100.0);
 
 	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+	glLoadIdentity();*/
 
 	//Background
 	texture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
+	texture2.drawSquareWithTexture(-3 * PIXEL_SIZE, -6 * PIXEL_SIZE, 3 * PIXEL_SIZE, 6 * PIXEL_SIZE);
 
 	//Score Characters
 	string score_str = to_string(board.getScore());
@@ -225,7 +230,7 @@ void display() {
 	
 
 	//Board
-	board.draw(WIDTH, HEIGHT);
+	//board.draw(WIDTH, HEIGHT);
 
 	//Puyos
 	if(isIndicatorOn)
@@ -281,6 +286,20 @@ void specialKeyDown(int key, int x, int y) {
 //
 //}
 
+void reshape(int w, int h) {
+	glViewport(0, 0, w, h);
+
+	double wRatio = (double)w / WIDTH;
+	double hRatio = (double)h / HEIGHT;
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glOrtho(-boundaryX * wRatio, boundaryX * wRatio, -boundaryY * hRatio, boundaryY * hRatio, -100.0, 100.0);
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+}
+
 int main(int argc, char** argv) {
 	srand(time(NULL));
 
@@ -299,6 +318,7 @@ int main(int argc, char** argv) {
 	glutSpecialFunc(specialKeyDown);
 	//glutSpecialUpFunc(specialKeyUp);
 	glutIdleFunc(idle);
+	glutReshapeFunc(reshape);
 
 	// enter GLUT event processing cycle
 	glutMainLoop();
