@@ -4,10 +4,10 @@
 #include "Vector3f.h"
 #include "GL/glut.h"
 
-class Sphere {
+class Puyo {
 public:
-	Sphere();
-	Sphere(float r, int sl, int st);
+	Puyo();
+	Puyo(float r, int sl, int st);
 	void setRadius(float r);
 	void setColor(int cl);
 	void setCenter(const Vector3f& c);
@@ -20,11 +20,11 @@ public:
 	Vector3f getVelocity() const;
 	const Material& getMaterial() const;
 
-	void move();
-	void manualMove(int key, int pixelSize);
-	void draw() const;
+	virtual void move();
+	virtual void manualMove(int key, int pixelSize);
+	virtual void draw() const;
 
-	bool operator&&(const Sphere& sph) const;
+	bool operator&&(const Puyo& sph) const;
 
 private:
 	float radius;

@@ -1,61 +1,61 @@
 #include <cmath>
-#include "Sphere.h"
+#include "Puyo.h"
 
-Sphere::Sphere() : radius(0), slice(0), stack(0), color(0), velocity(), mtl() {
+Puyo::Puyo() : radius(0), slice(0), stack(0), color(0), velocity(), mtl() {
 	center[0] = center[1] = center[2] = 1000;
 }
 
-Sphere::Sphere(float r, int sl, int st) : color(0), center(), velocity(), mtl() {
+Puyo::Puyo(float r, int sl, int st) : color(0), center(), velocity(), mtl() {
 	radius = r;
 	slice = sl;
 	stack = st;
 }
 
-void Sphere::setRadius(float r) {
+void Puyo::setRadius(float r) {
 	radius = r;
 }
 
-void Sphere::setColor(int cl) {
+void Puyo::setColor(int cl) {
 	color = cl;
 }
 
-void Sphere::setCenter(const Vector3f& c) {
+void Puyo::setCenter(const Vector3f& c) {
 	center = c;
 }
 
-void Sphere::setVelocity(const Vector3f& v) {
+void Puyo::setVelocity(const Vector3f& v) {
 	velocity = v;
 }
 
-void Sphere::setMTL(const Material& m) {
+void Puyo::setMTL(const Material& m) {
 	mtl = m;
 }
 
-float Sphere::getRadius() const {
+float Puyo::getRadius() const {
 	return radius;
 }
 
-int Sphere::getColor() const {
+int Puyo::getColor() const {
 	return color;
 }
 
-Vector3f Sphere::getCenter() const {
+Vector3f Puyo::getCenter() const {
 	return center;
 }
 
-Vector3f Sphere::getVelocity() const {
+Vector3f Puyo::getVelocity() const {
 	return velocity;
 }
 
-const Material& Sphere::getMaterial() const {
+const Material& Puyo::getMaterial() const {
 	return mtl;
 }
 
-void Sphere::move() {
+void Puyo::move() {
 	center += velocity;
 }
 
-void Sphere::manualMove(int key, int pixelSize) {
+void Puyo::manualMove(int key, int pixelSize) {
 	switch (key) {
 	case GLUT_KEY_LEFT:
 		center[0] -= pixelSize;
@@ -71,7 +71,7 @@ void Sphere::manualMove(int key, int pixelSize) {
 	}
 }
 
-void Sphere::draw() const {
+void Puyo::draw() const {
 	Vector4f emission = mtl.getEmission();
 	Vector4f ambient = mtl.getAmbient();
 	Vector4f diffuse = mtl.getDiffuse();
@@ -92,12 +92,12 @@ void Sphere::draw() const {
 	glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
 	glMaterialfv(GL_FRONT, GL_SHININESS, sh);
 	glTranslatef(center[0], center[1], center[2]);
-	glutSolidSphere(radius, slice, stack);
+	glutSolidPuyo(radius, slice, stack);
 
 	glPopMatrix();
 }
 
-bool Sphere::operator&&(const Sphere& sph) const {
+bool Puyo::operator&&(const Puyo& sph) const {
 	float distance = 0;
 	for (int i = 0; i < 3; i++)
 		distance += pow(center[i] - sph.center[i], 2);
