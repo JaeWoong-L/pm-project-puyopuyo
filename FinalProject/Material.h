@@ -1,23 +1,25 @@
 #pragma once
 
+#include "Vector4f.h"
+
 class Material {
 public:
 	Material();
-	void setEmission(float r, float g, float b, float a);
-	void setAmbient(float r, float g, float b, float a);
-	void setDiffuse(float r, float g, float b, float a);
-	void setSpecular(float r, float g, float b, float a);
+	void setEmission(const Vector4f& em);
+	void setAmbient(const Vector4f& am);
+	void setDiffuse(const Vector4f& di);
+	void setSpecular(const Vector4f& sp);
 	void setShininess(float sh);
-	const float* getEmission() const;
-	const float* getAmbient() const;
-	const float* getDiffuse() const;
-	const float* getSpecular() const;
-	const float* getShininess() const;
+	Vector4f getEmission() const;
+	Vector4f getAmbient() const;
+	Vector4f getDiffuse() const;
+	Vector4f getSpecular() const;
+	float getShininess() const;
 
 private:
-	float emission[4];
-	float ambient[4];
-	float diffuse[4];
-	float specular[4];
-	float shininess[1];
+	Vector4f emission;
+	Vector4f ambient;
+	Vector4f diffuse;
+	Vector4f specular;
+	float shininess;
 };

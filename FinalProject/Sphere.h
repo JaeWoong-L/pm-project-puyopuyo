@@ -1,32 +1,37 @@
 #pragma once
 
 #include "Material.h"
+#include "Vector3f.h"
 #include "GL/glut.h"
 
 class Sphere {
 public:
+	Sphere();
 	Sphere(float r, int sl, int st);
 	void setRadius(float r);
-	float getRadius() const;
-	void setSlice(int sl);
-	void setStack(int st);
 	void setColor(int cl);
-	const int getColor() const;
-	void setCenter(float x, float y, float z);
-	const float* getCenter() const;
-	void setVelocity(float x, float y, float z);
-	const float* getVelocity() const;
+	void setCenter(const Vector3f& c);
+	void setVelocity(const Vector3f& v);
 	void setMTL(const Material& m);
+
+	float getRadius() const;
+	int getColor() const;
+	Vector3f getCenter() const;
+	Vector3f getVelocity() const;
+	const Material& getMaterial() const;
+
 	void move();
 	void manualMove(int key, int pixelSize);
 	void draw() const;
+
+	bool operator&&(const Sphere& sph) const;
 
 private:
 	float radius;
 	int slice;
 	int stack;
 	int color;
-	float center[3];
-	float velocity[3];
+	Vector3f center;
+	Vector3f velocity;
 	Material mtl;
 };

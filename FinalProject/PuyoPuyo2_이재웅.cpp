@@ -27,6 +27,7 @@ using namespace std;
 #define SEG 180
 
 enum Color {
+	NONE,
 	RED,
 	GREEN,
 	BLUE,
@@ -47,7 +48,7 @@ int dx[] = { 0, 0, -1, 1 };
 int dy[] = { 1, -1, 0, 0 };
 vector<Sphere> startPuyo;
 vector<Sphere> nextPuyo;
-vector<Sphere> arrangedPuyos;
+Sphere arrangedPuyos[12][6];
 
 Light light(boundaryX/2, boundaryX, boundaryX, GL_LIGHT0);
 Material red, green, blue, yellow, purple;
@@ -57,8 +58,50 @@ clock_t start_t = clock(), end_t;
 clock_t blinkStart_t = clock(), blinkEnd_t;
 bool isIndicatorOn = true;
 
+// function declaration
+void generateRandomColor(Sphere& s, int max);
+void drawIndicator(const Vector3f& center);
+void arrangePuyo(const Sphere& puyo);
+void drop(Sphere& puyo);
+void remove();
+bool collisionHandling();
+void createPuyos();
+void initialize();
+void idle();
+void displayCharacters(void* font, float color[3], string str, float x, float y);
+void display();
+void keyboardDown(unsigned char key, int x, int y);
+void specialKeyDown(int key, int x, int y);
+void reshape(int w, int h);
+
+// main function
+int main(int argc, char** argv) {
+	srand(time(NULL));
+
+	// init GLUT and create Window
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
+	glutInitWindowPosition(650, 300);
+	glutInitWindowSize(WIDTH, HEIGHT);
+	glutCreateWindow("PuyoPuyo 2");
+	initialize();
+
+	// register callbacks
+	glutDisplayFunc(display);
+	glutKeyboardFunc(keyboardDown);
+	glutSpecialFunc(specialKeyDown);
+	glutIdleFunc(idle);
+	glutReshapeFunc(reshape);
+
+	// enter GLUT event processing cycle
+	glutMainLoop();
+
+	return 0;
+}
+
+// function definition
 void generateRandomColor(Sphere &s, int max) {
-	int color = rand() % max;
+	int color = rand() % max + 1;
 	switch (color) {
 	case RED:
 		s.setMTL(red);
@@ -85,7 +128,7 @@ void generateRandomColor(Sphere &s, int max) {
 	}
 }
 
-void drawCircle(const float center[3]) {
+void drawIndicator(const Vector3f& center) {
 	/* Implement: draw all circles */
 	glColor3f(0.7f, 0.7f, 0.7f);
 	glLineWidth(2.0f);
@@ -99,31 +142,95 @@ void drawCircle(const float center[3]) {
 	glEnd();
 }
 
+pair<int, int> getBoardIndex(const Vector3f& pos) {
+	const float zeroPos[] = { -3 * PIXEL_SIZE + RADIUS, 6 * PIXEL_SIZE - RADIUS };
+	int row = (zeroPos[1] - pos[1]) / PIXEL_SIZE;
+	int col = (pos[0] - zeroPos[0]) / PIXEL_SIZE;
+
+	return make_pair(row, col);
+}
+
+void arrangePuyo(const Sphere& puyo) {
+	pair<int, int> boardIndex = getBoardIndex(puyo.getCenter());
+
+	arrangedPuyos[boardIndex.first][boardIndex.second] = puyo;
+}
+
+void drop(Sphere& puyo) {
+	int row = getBoardIndex(puyo.getCenter()).first;
+	int col = getBoardIndex(puyo.getCenter()).second;
+	cout << "drop start" << endl;
+	cout << "vel: " << puyo.getVelocity()[1] << endl;
+	cout << "x: " << puyo.getCenter()[0] << ", y: " << puyo.getCenter()[1] << endl;
+	for (int i = row + 1; i < 12; i++) {
+		if (arrangedPuyos[i][col].getColor() == NONE)
+			continue;
+		while (!(arrangedPuyos[i][col] && puyo)) {
+			puyo.move();
+		}
+		break;
+	}
+
+	cout << "drop end" << endl;
+}
+
+void remove() {
+	queue<Sphere> q;
+
+}
+
+bool collisionHandling() {
+	for (int row = 0; row < 12; row++) {
+		for (int col = 0; col < 6; col++) {
+			for (int i = 0; i < 2; i++) {
+				if (arrangedPuyos[row][col] && startPuyo[i]) { // Collision Detection
+					startPuyo[i].setVelocity(Vector3f(0, 0, 0));
+					startPuyo[(i + 1) % 2].setVelocity(Vector3f(0, -1, 0));
+
+					return true;
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < 2; i++) {
+		if (startPuyo[i].getCenter()[1] - RADIUS <= -6 * PIXEL_SIZE) {
+			startPuyo[0].setVelocity(Vector3f(0, 0, 0));
+			startPuyo[1].setVelocity(Vector3f(0, 0, 0));
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void createPuyos() {
-	float startPuyoPos[2][2] = { { -RADIUS, 6 * PIXEL_SIZE - RADIUS }, {RADIUS, 6 * PIXEL_SIZE - RADIUS } };
-	float nextPuyoPos[2][2] = { { 0, 7 * PIXEL_SIZE + RADIUS },
-								{ 0, 7 * PIXEL_SIZE - RADIUS } };
+	Vector3f startPuyoPos[2] = { Vector3f(-RADIUS, 6 * PIXEL_SIZE - RADIUS, 0),
+								 Vector3f(RADIUS, 6 * PIXEL_SIZE - RADIUS, 0) };
+	Vector3f nextPuyoPos[2] = { Vector3f(0, 7 * PIXEL_SIZE + RADIUS , 0),
+								Vector3f(0, 7 * PIXEL_SIZE - RADIUS , 0) };
+	Vector3f initialVelocity(0, -PIXEL_SIZE / 2, 0);
 
 	if (startPuyo.empty() && nextPuyo.empty()) { //initialize
 		Sphere S1(RADIUS, 20, 20), S2(RADIUS, 20, 20);
 
 		//init startPuyo
-		S1.setCenter(startPuyoPos[0][0], startPuyoPos[0][1], 0);
-		S1.setVelocity(0, -PIXEL_SIZE / 2, 0);
+		S1.setCenter(startPuyoPos[0]);
+		S1.setVelocity(initialVelocity);
 		generateRandomColor(S1, 4);
 
-		S2.setCenter(startPuyoPos[1][0], startPuyoPos[1][1], 0);
-		S2.setVelocity(0, -PIXEL_SIZE / 2, 0);
+		S2.setCenter(startPuyoPos[1]);
+		S2.setVelocity(initialVelocity);
 		generateRandomColor(S2, 4);
 
 		startPuyo.push_back(S1);
 		startPuyo.push_back(S2);
 
 		//init nextPuyo
-		S1.setCenter(nextPuyoPos[0][0], nextPuyoPos[0][1], 0);
+		S1.setCenter(nextPuyoPos[0]);
 		generateRandomColor(S1, 4);
-		
-		S2.setCenter(nextPuyoPos[1][0], nextPuyoPos[1][1], 0);
+
+		S2.setCenter(nextPuyoPos[1]);
 		generateRandomColor(S2, 4);
 
 		nextPuyo.push_back(S1);
@@ -133,7 +240,7 @@ void createPuyos() {
 		//startPuyo
 		for (int i = 0; i < 2; i++) {
 			startPuyo[i] = nextPuyo[i];
-			startPuyo[i].setCenter(startPuyoPos[i][0], startPuyoPos[i][1], 0);
+			startPuyo[i].setCenter(startPuyoPos[i]);
 		}
 
 		//nextPuyo
@@ -142,32 +249,20 @@ void createPuyos() {
 	}
 }
 
-// 알고리즘 구현부분
-void remove() {
-
-}
-
-void displayCharacters(void* font, float color[3], string str, float x, float y) {
-	glColor3f(color[0], color[1], color[2]);
-	glRasterPos2f(x, y);
-	for (auto i = 0; i < str.size(); i++)
-		glutBitmapCharacter(font, str[i]);
-}
-
 void initialize() {
 	//init materials
-	red.setAmbient(1, 0, 0, 0);
-	green.setAmbient(0, 1, 0, 0);
-	blue.setAmbient(0, 0, 1, 0);
-	yellow.setAmbient(1, 1, 0, 0);
-	purple.setAmbient(1, 0, 1, 0);
+	red.setAmbient(Vector4f(1, 0, 0, 0));
+	green.setAmbient(Vector4f(0, 1, 0, 0));
+	blue.setAmbient(Vector4f(0, 0, 1, 0));
+	yellow.setAmbient(Vector4f(1, 1, 0, 0));
+	purple.setAmbient(Vector4f(1, 0, 1, 0));
 
 	//init startPuyo & nextPuyo
 	string backgroundImg = "background_christmas_cartoon.jpg";
 	backgroundTexture.initializeTexture(backgroundImg.c_str());
 
-	string boardImg = "background_board.png";
-	boardTexture.initializeTexture(boardImg.c_str());
+	//string boardImg = "background_board.png";
+	//boardTexture.initializeTexture(boardImg.c_str());
 
 	string frameImg = "frame_brown.png";
 	frameTexture.initializeTexture(frameImg.c_str());
@@ -176,6 +271,8 @@ void initialize() {
 }
 
 void idle() {
+	bool collisionDetected = false;
+
 	//blink indicator
 	blinkEnd_t = clock();
 	if ((blinkEnd_t - blinkStart_t) > CLOCKS_PER_SEC / 6) {
@@ -187,29 +284,37 @@ void idle() {
 	//move down startPuyo
 	end_t = clock();
 	if ((end_t - start_t) > CLOCKS_PER_SEC) {
-		for (int i = 0; i < 2; i++) {
-			if (startPuyo[i].getCenter()[1] - RADIUS <= -6 * PIXEL_SIZE) {
-				startPuyo[0].setVelocity(0, 0, 0);
-				startPuyo[1].setVelocity(0, 0, 0);
-
-				arrangedPuyos.push_back(startPuyo[0]);
-				arrangedPuyos.push_back(startPuyo[1]);
-
-				createPuyos();
-				break;
+		collisionDetected = collisionHandling();
+		if (collisionDetected) {
+			if (startPuyo[0].getVelocity() == Vector3f(0, 0, 0)) {
+				arrangePuyo(startPuyo[0]);
+				drop(startPuyo[1]);
+				arrangePuyo(startPuyo[1]);
+			}
+			else {
+				arrangePuyo(startPuyo[1]);
+				drop(startPuyo[0]);
+				arrangePuyo(startPuyo[0]);
 			}
 
-			startPuyo[i].setCenter(startPuyo[i].getCenter()[0] + startPuyo[i].getVelocity()[0],
-				startPuyo[i].getCenter()[1] + startPuyo[i].getVelocity()[1],
-				startPuyo[i].getCenter()[2] + startPuyo[i].getVelocity()[2]);
+			createPuyos();
 		}
-		//createPuyos();
+		else {
+			startPuyo[0].move();
+			startPuyo[1].move();
+		}
 
 		start_t = end_t;
 	}
-	
 
 	glutPostRedisplay();
+}
+
+void displayCharacters(void* font, float color[3], string str, float x, float y) {
+	glColor3f(color[0], color[1], color[2]);
+	glRasterPos2f(x, y);
+	for (auto i = 0; i < str.size(); i++)
+		glutBitmapCharacter(font, str[i]);
 }
 
 void display() {
@@ -217,22 +322,15 @@ void display() {
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	/*glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(-boundaryX, boundaryX, -boundaryY, boundaryY, -100.0, 100.0);
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();*/
-
 	//Textures
 	backgroundTexture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
-	frameTexture.drawSquareWithTexture(-3 * PIXEL_SIZE - 30, -6 * PIXEL_SIZE - 30, 3 * PIXEL_SIZE + 30, 6 * PIXEL_SIZE + 30);
+	frameTexture.drawSquareWithTexture(-3 * PIXEL_SIZE - 20, -6 * PIXEL_SIZE - 30, 3 * PIXEL_SIZE + 20, 6 * PIXEL_SIZE + 30);
 	//boardTexture.drawSquareWithTexture(-3 * PIXEL_SIZE, -6 * PIXEL_SIZE, 3 * PIXEL_SIZE, 6 * PIXEL_SIZE);
 
 	//Score Characters
 	string score_str = to_string(board.getScore());
 	string str = "      ";
-	for (auto i = 0; i < score_str.size(); i++) {
+	for (int i = 0; i < score_str.size(); i++) {
 		str[str.size() - score_str.size() + i] = score_str[i];
 	}
 	str = "SCORE:  " + str + " points";
@@ -254,13 +352,17 @@ void display() {
 		startPuyo[i].draw();
 		nextPuyo[i].draw();
 	}
-	for (const Sphere& puyo : arrangedPuyos)
-		puyo.draw();
+	for (int row = 0; row < 12; row++) {
+		for (int col = 0; col < 6; col++) {
+			if (arrangedPuyos[row][col].getColor() != NONE)
+				arrangedPuyos[row][col].draw();
+		}
+	}
 	glDisable(GL_DEPTH_TEST);
 	glDisable(light.getLightID());
 	glDisable(GL_LIGHTING);
 	if (isIndicatorOn)
-		drawCircle(startPuyo[1].getCenter());
+		drawIndicator(startPuyo[1].getCenter());
 
 	glutSwapBuffers();
 }
@@ -275,10 +377,6 @@ void keyboardDown(unsigned char key, int x, int y) {
 	default:
 		break;
 	}
-}
-
-void keyboardUp(unsigned char key, int x, int y) {
-
 }
 
 void specialKeyDown(int key, int x, int y) {
@@ -328,10 +426,6 @@ void specialKeyDown(int key, int x, int y) {
 	}
 }
 
-//void specialKeyUp(int key, int x, int y) {
-//
-//}
-
 void reshape(int w, int h) {
 	glViewport(0, 0, w, h);
 
@@ -344,30 +438,4 @@ void reshape(int w, int h) {
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-}
-
-int main(int argc, char** argv) {
-	srand(time(NULL));
-
-	// init GLUT and create Window
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
-	glutInitWindowPosition(650, 300);
-	glutInitWindowSize(WIDTH, HEIGHT);
-	glutCreateWindow("PuyoPuyo 2");
-	initialize();
-
-	// register callbacks
-	glutDisplayFunc(display);
-	glutKeyboardFunc(keyboardDown);
-	//glutKeyboardUpFunc(keyboardUp);
-	glutSpecialFunc(specialKeyDown);
-	//glutSpecialUpFunc(specialKeyUp);
-	glutIdleFunc(idle);
-	glutReshapeFunc(reshape);
-
-	// enter GLUT event processing cycle
-	glutMainLoop();
-
-	return 0;
 }
