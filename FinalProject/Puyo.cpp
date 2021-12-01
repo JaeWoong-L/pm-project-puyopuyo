@@ -64,7 +64,7 @@ void Puyo::manualMove(int key, int pixelSize) {
 		center[0] += pixelSize;
 		break;
 	case GLUT_KEY_DOWN:
-		center[1] -= pixelSize / 2;
+		center[1] -= pixelSize;
 		break;
 	default:
 		break;
@@ -92,7 +92,7 @@ void Puyo::draw() const {
 	glMaterialfv(GL_FRONT, GL_SPECULAR, sp);
 	glMaterialfv(GL_FRONT, GL_SHININESS, sh);
 	glTranslatef(center[0], center[1], center[2]);
-	glutSolidPuyo(radius, slice, stack);
+	glutSolidSphere(radius, slice, stack);
 
 	glPopMatrix();
 }
