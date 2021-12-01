@@ -151,9 +151,9 @@
     <ClCompile Include="Board.cpp" />
     <ClCompile Include="Light.cpp" />
     <ClCompile Include="Material.cpp" />
+    <ClCompile Include="PuyoPuyo.cpp" />
     <ClCompile Include="PuyoPuyo2_이재웅.cpp" />
     <ClCompile Include="Scene.cpp" />
-    <ClCompile Include="Sphere.cpp" />
     <ClCompile Include="Puyo.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Vector3f.cpp" />
@@ -163,8 +163,8 @@
     <ClInclude Include="Board.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="Material.h" />
+    <ClInclude Include="PuyoPuyo.h" />
     <ClInclude Include="Scene.h" />
-    <ClInclude Include="Sphere.h" />
     <ClInclude Include="Puyo.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="Vector3f.h" />

@@ -24,9 +24,6 @@
     <ClCompile Include="Material.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="Sphere.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="Board.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -45,15 +42,15 @@
     <ClCompile Include="Puyo.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="PuyoPuyo.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Light.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Material.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="Sphere.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Board.h">
@@ -72,6 +69,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Puyo.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="PuyoPuyo.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
