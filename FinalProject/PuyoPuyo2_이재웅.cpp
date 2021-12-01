@@ -29,6 +29,13 @@ using namespace std;
 #define PI 3.141592
 #define SEG 180
 
+#define DROP_VELOCITY Vector3f(0, -2, 0)
+
+#define UP PuyoPuyo::Relation::UP
+#define DOWN PuyoPuyo::Relation::DOWN
+#define LEFT PuyoPuyo::Relation::LEFT
+#define RIGHT PuyoPuyo::Relation::RIGHT
+
 enum Color {
 	NONE,
 	RED,
@@ -50,7 +57,8 @@ int dx[] = { 0, 0, -1, 1 };
 int dy[] = { 1, -1, 0, 0 };
 
 PuyoPuyo startPuyo, nextPuyo;
-Puyo arrangedPuyos[12][6];
+vector<Puyo> arrangedPuyos;
+Vector3f zeroVector3f;
 
 Light light(boundaryX/2, boundaryX, boundaryX, GL_LIGHT0);
 Material red, green, blue, yellow, purple;
@@ -59,16 +67,16 @@ Texture backgroundTexture, boardTexture, frameTexture;
 clock_t start_t = clock(), end_t;
 clock_t blinkStart_t = clock(), blinkEnd_t;
 bool isIndicatorOn = true;
-bool collisionDetected = false;
 
 // function declarations
 void generateRandomColor(Puyo& s, int max);
 void drawIndicator(const Vector3f& center);
-void arrangePuyo(const Puyo& puyo);
-void drop(Puyo& puyo);
 void remove();
 void rotate();
-void collisionHandling(Puyo& sph);
+bool collisionDetectionBottom(const Puyo& puyo);
+bool collisionDetectionLeft(const Puyo& puyo);
+bool collisionDetectionRight(const Puyo& puyo);
+void collisionHandling();
 void createPuyo();
 void initialize();
 void idle();
@@ -78,7 +86,9 @@ void keyboardDown(unsigned char key, int x, int y);
 void specialKeyDown(int key, int x, int y);
 void reshape(int w, int h);
 
-// main function
+/***************************************************************
+*********************** Main Function **************************
+***************************************************************/
 int main(int argc, char** argv) {
 	srand(time(NULL));
 
@@ -154,102 +164,134 @@ pair<int, int> getBoardIndex(const Vector3f& pos) {
 	return make_pair(row, col);
 }
 
-void arrangePuyo(const Puyo& puyo) {
-	pair<int, int> boardIndex = getBoardIndex(puyo.getCenter());
-
-	arrangedPuyos[boardIndex.first][boardIndex.second] = puyo;
-}
-
-void drop(Puyo& puyo) {
-	int row = getBoardIndex(puyo.getCenter()).first;
-	int col = getBoardIndex(puyo.getCenter()).second;
-	cout << "drop start" << endl;
-	cout << "vel: " << puyo.getVelocity()[1] << endl;
-	cout << "x: " << puyo.getCenter()[0] << ", y: " << puyo.getCenter()[1] << endl;
-
-	if (puyo.getCenter()[1] < -boundaryY)
-		return;
-
-	for (int i = row + 1; i < 12; i++) {
-		if (arrangedPuyos[i][col].getColor() == NONE)
-			continue;
-		while (!(arrangedPuyos[i][col] && puyo)) {
-			puyo.move();
-		}
-		break;
-	}
-
-	cout << "drop end" << endl;
-}
-
 void remove() {
 	queue<Puyo> q;
 
 }
 
 void rotate() {
-	Vector3f secondPuyoPos = startPuyo.getSecondPuyo().getCenter();
+	Vector3f secondPuyoPos = startPuyo[1].getCenter();
 
 	switch (startPuyo.getRelation()) {
-	case PuyoPuyo::UP:
-		if (secondPuyoPos[0] + RADIUS > -boardBoundaryX) {
-			startPuyo.getFirstPuyo().setCenter(Vector3f(secondPuyoPos[0] - PIXEL_SIZE, secondPuyoPos[1], 0));
+	case UP:
+		if (collisionDetectionLeft(startPuyo[1]))
+			return;
+
+		if (secondPuyoPos[0] - RADIUS > -boardBoundaryX) {
+			startPuyo[0].setCenter(Vector3f(secondPuyoPos[0] - PIXEL_SIZE, secondPuyoPos[1], 0));
 		}
 		else {
-			startPuyo.getFirstPuyo().setCenter(secondPuyoPos);
-			startPuyo.getSecondPuyo().setCenter(Vector3f(secondPuyoPos[0] + PIXEL_SIZE, secondPuyoPos[1], 0));
+			startPuyo[0].setCenter(secondPuyoPos);
+			startPuyo[1].setCenter(Vector3f(secondPuyoPos[0] + PIXEL_SIZE, secondPuyoPos[1], 0));
 		}
+		startPuyo.setRelation(LEFT);
 		break;
-	case PuyoPuyo::DOWN:
+	case DOWN:
+		if (collisionDetectionRight(startPuyo[1]))
+			return;
+
 		if (secondPuyoPos[0] + RADIUS < boardBoundaryX) {
-			startPuyo.getFirstPuyo().setCenter(Vector3f(secondPuyoPos[0] + PIXEL_SIZE, secondPuyoPos[1], 0));
+			startPuyo[0].setCenter(Vector3f(secondPuyoPos[0] + PIXEL_SIZE, secondPuyoPos[1], 0));
 		}
 		else {
-			startPuyo.getFirstPuyo().setCenter(secondPuyoPos);
-			startPuyo.getSecondPuyo().setCenter(Vector3f(secondPuyoPos[0] - PIXEL_SIZE, secondPuyoPos[1], 0));
+			startPuyo[0].setCenter(secondPuyoPos);
+			startPuyo[1].setCenter(Vector3f(secondPuyoPos[0] - PIXEL_SIZE, secondPuyoPos[1], 0));
 		}
+		startPuyo.setRelation(RIGHT);
 		break;
-	case PuyoPuyo::LEFT:
-		if (secondPuyoPos[1] - RADIUS < -boardBoundaryY) {
-			startPuyo.getFirstPuyo().setCenter(Vector3f(secondPuyoPos[0], secondPuyoPos[1] - PIXEL_SIZE, 0));
+	case LEFT:
+		if (collisionDetectionBottom(startPuyo[1]))
+			return;
+		 
+		if (secondPuyoPos[1] - RADIUS > -boardBoundaryY) {
+			startPuyo[0].setCenter(Vector3f(secondPuyoPos[0], secondPuyoPos[1] - PIXEL_SIZE, 0));
 		}
 		else {
-			startPuyo.getFirstPuyo().setCenter(secondPuyoPos);
-			startPuyo.getSecondPuyo().setCenter(Vector3f(secondPuyoPos[0], secondPuyoPos[1] + PIXEL_SIZE, 0));
+			startPuyo[0].setCenter(secondPuyoPos);
+			startPuyo[1].setCenter(Vector3f(secondPuyoPos[0], secondPuyoPos[1] + PIXEL_SIZE, 0));
 		}
+		startPuyo.setRelation(DOWN);
 		break;
-	case PuyoPuyo::RIGHT:
-		startPuyo.getFirstPuyo().setCenter(Vector3f(secondPuyoPos[0], secondPuyoPos[1] + PIXEL_SIZE, 0));
+	case RIGHT:
+		startPuyo[0].setCenter(Vector3f(secondPuyoPos[0], secondPuyoPos[1] + PIXEL_SIZE, 0));
+		startPuyo.setRelation(UP);
 		break;
 	default:
 		break;
 	}
 }
 
-void collisionHandling(PuyoPuyo& puyos) {
-	for (int row = 0; row < 12; row++) {
-		for (int col = 0; col < 6; col++) {
-			if (arrangedPuyos[row][col] && puyos.getFirstPuyo()) // Collision Detection
-				puyos.getFirstPuyo().setVelocity(Vector3f(0, 0, 0));
-			if (arrangedPuyos[row][col] && puyos.getSecondPuyo())
-				puyos.getSecondPuyo().setVelocity(Vector3f(0, 0, 0));
-		}
-	}
+bool collisionDetectionBottom(const Puyo& puyo) {
+	// between puyos
+	for (const Puyo& arrangedPuyo : arrangedPuyos)
+		if ((puyo && arrangedPuyo) && puyo.getCenter()[0] == arrangedPuyo.getCenter()[0])
+			return true;
 
-	if (puyos.getFirstPuyo().getCenter()[1] - RADIUS <= -6 * PIXEL_SIZE)
-		puyos.getFirstPuyo().setVelocity(Vector3f(0, 0, 0));
-	if (puyos.getSecondPuyo().getCenter()[1] - RADIUS <= -6 * PIXEL_SIZE)
-		puyos.getSecondPuyo().setVelocity(Vector3f(0, 0, 0));
+	// lower boundary
+	if (puyo.getCenter()[1] - RADIUS <= -boardBoundaryY)
+		return true;
+
+	return false;
+}
+
+bool collisionDetectionLeft(const Puyo& puyo) {
+	// between puyos
+	for (const Puyo& arrangedPuyo : arrangedPuyos)
+		if ((puyo && arrangedPuyo) && puyo.getCenter()[1] == arrangedPuyo.getCenter()[1])
+			return true;
+
+	// lower boundary
+	if (puyo.getCenter()[0] - RADIUS <= -boardBoundaryX)
+		return true;
+
+	return false;
+}
+
+bool collisionDetectionRight(const Puyo& puyo) {
+	// between puyos
+	for (const Puyo& arrangedPuyo : arrangedPuyos)
+		if ((puyo && arrangedPuyo) && puyo.getCenter()[1] == arrangedPuyo.getCenter()[1])
+			return true;
+
+	// lower boundary
+	if (puyo.getCenter()[0] + RADIUS >= boardBoundaryX)
+		return true;
+
+	return false;
+}
+
+/// <summary>
+/// 1. 공 겹치는 문제 수정
+/// 2. 공 놓여있는 곳 지나면 collisionDetection 판정돼서 좌우로 안움직이는 버그 수정.
+/// </summary>
+/// <param name="puyo"></param>
+/// <returns></returns>
+
+void collisionHandling() {
+	if (collisionDetectionBottom(startPuyo[0])) {
+		cout << "collision handling 0" << endl;
+		startPuyo[0].setVelocity(zeroVector3f);
+
+		if (startPuyo.getRelation() == UP || startPuyo.getRelation() == DOWN)
+			startPuyo[1].setVelocity(zeroVector3f);
+	}
+	if (collisionDetectionBottom(startPuyo[1])) {
+		cout << "collision handling 1" << endl;
+		startPuyo[1].setVelocity(zeroVector3f);
+
+		if (startPuyo.getRelation() == UP || startPuyo.getRelation() == DOWN)
+			startPuyo[0].setVelocity(zeroVector3f);
+	}
 }
 
 void createPuyo() {
-	Vector3f startPuyoPos[2] = { Vector3f(-RADIUS, 6 * PIXEL_SIZE - RADIUS, 0),
-								 Vector3f(RADIUS, 6 * PIXEL_SIZE - RADIUS, 0) };
+	Vector3f startPuyoPos[2] = { Vector3f(RADIUS, 5 * PIXEL_SIZE + RADIUS, 0),
+								 Vector3f(RADIUS, 5 * PIXEL_SIZE - RADIUS, 0) };
 	Vector3f nextPuyoPos[2] = { Vector3f(0, 7 * PIXEL_SIZE + RADIUS , 0),
 								Vector3f(0, 7 * PIXEL_SIZE - RADIUS , 0) };
-	Vector3f initialVelocity(0, -PIXEL_SIZE / 2, 0);
+	Vector3f initialVelocity(0, -PIXEL_SIZE, 0);
 
-	if (startPuyo.getFirstPuyo().getColor() == NONE) {
+	if (startPuyo[0].getColor() == NONE) {
 		Puyo sph1(RADIUS, 20, 20), sph2(RADIUS, 20, 20);
 
 		//init startPuyo
@@ -274,11 +316,11 @@ void createPuyo() {
 	}
 	else {
 		startPuyo = nextPuyo;
-		startPuyo.getFirstPuyo().setCenter(startPuyoPos[0]);
-		startPuyo.getSecondPuyo().setCenter(startPuyoPos[1]);
+		startPuyo[0].setCenter(startPuyoPos[0]);
+		startPuyo[1].setCenter(startPuyoPos[1]);
 
-		generateRandomColor(startPuyo.getFirstPuyo(), 4);
-		generateRandomColor(startPuyo.getSecondPuyo(), 4);
+		generateRandomColor(nextPuyo[0], 4);
+		generateRandomColor(nextPuyo[1], 4);
 	}
 }
 
@@ -305,23 +347,42 @@ void initialize() {
 
 void idle() {
 	//blink indicator
-	blinkEnd_t = clock();
-	if ((blinkEnd_t - blinkStart_t) > CLOCKS_PER_SEC / 6) {
-		isIndicatorOn = !isIndicatorOn;
-
-		blinkStart_t = blinkEnd_t;
-	}
 
 	//move down startPuyo
-	end_t = clock();
-	if ((end_t - start_t) > CLOCKS_PER_SEC) {
-		collisionHandling(startPuyo);
-		if(collisionDetected)
-
-		startPuyo[0].move();
+	collisionHandling();
+	if (startPuyo[0].getVelocity()[1] == 0 && startPuyo[1].getVelocity()[1] == 0) {
+		arrangedPuyos.push_back(startPuyo[0]);
+		arrangedPuyos.push_back(startPuyo[1]);
+		createPuyo();
+	}
+	else if (startPuyo[0].getVelocity()[1] == 0) {
+		isIndicatorOn = false;
+		
+		arrangedPuyos.push_back(startPuyo[0]);
+		startPuyo[1].setVelocity(DROP_VELOCITY);
 		startPuyo[1].move();
+	}
+	else if (startPuyo[1].getVelocity()[1] == 0) {
+		isIndicatorOn = false;
 
-		start_t = end_t;
+		arrangedPuyos.push_back(startPuyo[1]);
+		startPuyo[0].setVelocity(DROP_VELOCITY);
+		startPuyo[0].move();
+	}
+	else {
+		blinkEnd_t = clock();
+		if ((blinkEnd_t - blinkStart_t) > CLOCKS_PER_SEC / 6) {
+			isIndicatorOn = !isIndicatorOn;
+
+			blinkStart_t = blinkEnd_t;
+		}
+
+		end_t = clock();
+		if ((end_t - start_t) > CLOCKS_PER_SEC) {
+			startPuyo.move();
+
+			start_t = end_t;
+		}
 	}
 
 	glutPostRedisplay();
@@ -367,17 +428,15 @@ void display() {
 	light.draw();
 	startPuyo.draw();
 	nextPuyo.draw();
-	for (int row = 0; row < 12; row++) {
-		for (int col = 0; col < 6; col++) {
-			if (arrangedPuyos[row][col].getColor() != NONE)
-				arrangedPuyos[row][col].draw();
-		}
+	for(const Puyo& arrangedPuyo : arrangedPuyos) {
+		if (arrangedPuyo.getColor() != NONE)
+			arrangedPuyo.draw();
 	}
 	glDisable(GL_DEPTH_TEST);
 	glDisable(light.getLightID());
 	glDisable(GL_LIGHTING);
 	if (isIndicatorOn)
-		drawIndicator(startPuyo.getSecondPuyo().getCenter());
+		drawIndicator(startPuyo[1].getCenter());
 
 	glutSwapBuffers();
 }
@@ -395,47 +454,32 @@ void keyboardDown(unsigned char key, int x, int y) {
 }
 
 void specialKeyDown(int key, int x, int y) {
-	bool movable = true;
+	// copy startPuyo to temporary puyo p
+	PuyoPuyo p = startPuyo;
 
 	switch (key) {
 	case GLUT_KEY_UP: // CCW rotation
 		rotate();
 		break;
 	case GLUT_KEY_DOWN:
-		for (const Puyo& puyo : startPuyo) {
-			if (puyo.getCenter()[1] - RADIUS <= -6 * PIXEL_SIZE) {
-				movable = false;
-				break;
-			}
+		//if (!(collisionDetectionBottom(startPuyo[0]) || collisionDetectionBottom(startPuyo[1]))) {
+		//	p.manualMove(key, PIXEL_SIZE);
+		//	if(!(collisionDetectionBottom(p[0]) || collisionDetectionBottom(p[1])))
+		//		startPuyo.manualMove(key, PIXEL_SIZE);
+		//}
+
+		if (!(collisionDetectionBottom(startPuyo[0]) || collisionDetectionBottom(startPuyo[1]))) {
+			startPuyo.manualMove(key, PIXEL_SIZE);
 		}
 
-		if (movable)
-			for (Puyo& puyo : startPuyo)
-				puyo.manualMove(key, PIXEL_SIZE);
 		break;
-	case GLUT_KEY_LEFT: 
-		for (const Puyo& puyo : startPuyo) {
-			if (puyo.getCenter()[0] - RADIUS <= -3 * PIXEL_SIZE) {
-				movable = false;
-				break;
-			}
-		}
-
-		if (movable)
-			for (Puyo& puyo : startPuyo)
-				puyo.manualMove(key, PIXEL_SIZE);
+	case GLUT_KEY_LEFT:
+		if (!(collisionDetectionLeft(startPuyo[0]) || collisionDetectionLeft(startPuyo[1])))
+			startPuyo.manualMove(key, PIXEL_SIZE);
 		break;
 	case GLUT_KEY_RIGHT:
-		for (const Puyo& puyo : startPuyo) {
-			if (puyo.getCenter()[0] + RADIUS >= 3 * PIXEL_SIZE) {
-				movable = false;
-				break;
-			}
-		}
-
-		if (movable)
-			for (Puyo& puyo : startPuyo)
-				puyo.manualMove(key, PIXEL_SIZE);
+		if (!(collisionDetectionRight(startPuyo[0]) || collisionDetectionRight(startPuyo[1])))
+			startPuyo.manualMove(key, PIXEL_SIZE);
 		break;
 	default:
 		break;
