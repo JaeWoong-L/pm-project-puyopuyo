@@ -44,6 +44,10 @@ bool Vector3f::operator==(const Vector3f& v) {
 	return (pos[0] == v.pos[0]) && (pos[1] == v.pos[1]) && (pos[2] == v.pos[2]);
 }
 
+bool Vector3f::operator!=(const Vector3f& v) {
+	return (pos[0] != v.pos[0]) || (pos[1] != v.pos[1]) || (pos[2] != v.pos[2]);
+}
+
 float dotProduct(Vector3f v1, Vector3f v2) {
 	float ans = 0.0f;
 	for (int i = 0; i < 3; i++)

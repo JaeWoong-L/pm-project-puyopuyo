@@ -11,6 +11,7 @@ public:
 	Vector3f operator-(const Vector3f& v);
 	Vector3f operator*(const float s);
 	bool operator==(const Vector3f& v);
+	bool operator!=(const Vector3f& v);
 
 private:
 	float pos[3];
