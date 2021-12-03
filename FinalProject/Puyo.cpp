@@ -1,11 +1,11 @@
 #include <cmath>
 #include "Puyo.h"
 
-Puyo::Puyo() : radius(0), slice(0), stack(0), color(0), velocity(), mtl() {
+Puyo::Puyo() : radius(0), slice(0), stack(0), color(0), velocity(), mtl(), visited(false), removed(false) {
 	center[0] = center[1] = center[2] = 1000;
 }
 
-Puyo::Puyo(float r, int sl, int st) : color(0), center(), velocity(), mtl() {
+Puyo::Puyo(float r, int sl, int st) : color(0), center(), velocity(), mtl(), visited(false), removed(false) {
 	radius = r;
 	slice = sl;
 	stack = st;
@@ -31,6 +31,31 @@ void Puyo::setMTL(const Material& m) {
 	mtl = m;
 }
 
+void Puyo::setVisited(bool v) {
+	visited = v;
+}
+
+void Puyo::setRemoved(bool r) {
+	removed = r;
+}
+
+void Puyo::fadeOut(int maxCount) {
+	Vector4f am = mtl.getAmbient();
+	Vector4f di = mtl.getDiffuse();
+	Vector4f sp = mtl.getSpecular();
+
+	float subtractor = 1.0f / maxCount;
+	for (int i = 0; i < 3; i++) {
+		am[i] -= subtractor;
+		di[i] -= subtractor;
+		sp[i] -= subtractor;
+	}
+
+	mtl.setAmbient(am);
+	mtl.setDiffuse(di);
+	mtl.setSpecular(sp);
+}
+
 float Puyo::getRadius() const {
 	return radius;
 }
@@ -49,6 +74,14 @@ Vector3f Puyo::getVelocity() const {
 
 const Material& Puyo::getMaterial() const {
 	return mtl;
+}
+
+bool Puyo::getVisited() const {
+	return visited;
+}
+
+bool Puyo::getRemoved() const {
+	return removed;
 }
 
 void Puyo::move() {
@@ -101,6 +134,9 @@ bool Puyo::operator&&(const Puyo& sph) const {
 	float distance = 0;
 	for (int i = 0; i < 3; i++)
 		distance += pow(center[i] - sph.center[i], 2);
+
+	if (distance == 0)
+		return false;
 
 	return (pow(radius + sph.radius, 2) >= distance);
 }
