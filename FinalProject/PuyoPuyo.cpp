@@ -1,6 +1,6 @@
 #include "PuyoPuyo.h"
 
-PuyoPuyo::PuyoPuyo() : puyo{}, collisionDetected(false), relation(Relation::LEFT) {}
+PuyoPuyo::PuyoPuyo() : puyo{}, collisionDetected(false), relation(Relation::UP) {}
 
 PuyoPuyo::PuyoPuyo(const Puyo& sph1, const Puyo& sph2) : collisionDetected(false), relation(Relation::LEFT) {
 	puyo[0] = sph1;
