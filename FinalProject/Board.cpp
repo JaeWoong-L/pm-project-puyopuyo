@@ -6,7 +6,7 @@ using namespace std;
 
 #include "Board.h"
 
-Board::Board(int ps) : score(0) {
+Board::Board(int ps) : score(0), combo(0) {
 	pixelSize = ps;
 	margin = (float)ps / 20;
 

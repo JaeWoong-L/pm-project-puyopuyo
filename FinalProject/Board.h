@@ -16,4 +16,5 @@ private:
 	int pixelSize;
 	float margin;
 	int score;
+	int combo;
 };
