@@ -50,6 +50,11 @@ void PuyoPuyo::draw() const {
 	puyo[1].draw();
 }
 
+void PuyoPuyo::clear() {
+	puyo[0] = Puyo();
+	puyo[1] = Puyo();
+}
+
 Puyo& PuyoPuyo::operator[](int i) {
 	return puyo[i];
 }

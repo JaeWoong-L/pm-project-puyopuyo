@@ -20,6 +20,7 @@ public:
 	void move();
 	void manualMove(int key, int pixelSize);
 	void draw() const;
+	void clear();
 
 	Puyo& operator[] (int i);
 
