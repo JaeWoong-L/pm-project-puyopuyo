@@ -6,10 +6,19 @@
 
 class Puyo {
 public:
+	enum class Color {
+		NONE,
+		RED,
+		GREEN,
+		BLUE,
+		YELLOW,
+		PURPLE
+	};
+
 	Puyo();
 	Puyo(float r, int sl, int st);
 	void setRadius(float r);
-	void setColor(int cl);
+	void setColor(Color cl);
 	void setCenter(const Vector3f& c);
 	void setVelocity(const Vector3f& v);
 	void setMTL(const Material& m);
@@ -18,7 +27,7 @@ public:
 	void fadeOut(int maxCount);
 
 	float getRadius() const;
-	int getColor() const;
+	Color getColor() const;
 	Vector3f getCenter() const;
 	Vector3f getVelocity() const;
 	const Material& getMaterial() const;
@@ -35,7 +44,7 @@ private:
 	float radius;
 	int slice;
 	int stack;
-	int color;
+	Color color;
 	Vector3f center;
 	Vector3f velocity;
 	Material mtl;

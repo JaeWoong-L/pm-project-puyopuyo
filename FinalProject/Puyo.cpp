@@ -1,11 +1,11 @@
 #include <cmath>
 #include "Puyo.h"
 
-Puyo::Puyo() : radius(0), slice(0), stack(0), color(0), velocity(), mtl(), visited(false), removed(false) {
+Puyo::Puyo() : radius(0), slice(0), stack(0), color(Color::NONE), velocity(), mtl(), visited(false), removed(false) {
 	center[0] = center[1] = center[2] = 1000;
 }
 
-Puyo::Puyo(float r, int sl, int st) : color(0), center(), velocity(), mtl(), visited(false), removed(false) {
+Puyo::Puyo(float r, int sl, int st) : color(Color::NONE), center(), velocity(), mtl(), visited(false), removed(false) {
 	radius = r;
 	slice = sl;
 	stack = st;
@@ -15,7 +15,7 @@ void Puyo::setRadius(float r) {
 	radius = r;
 }
 
-void Puyo::setColor(int cl) {
+void Puyo::setColor(Color cl) {
 	color = cl;
 }
 
@@ -60,7 +60,7 @@ float Puyo::getRadius() const {
 	return radius;
 }
 
-int Puyo::getColor() const {
+Puyo::Color Puyo::getColor() const {
 	return color;
 }
 
