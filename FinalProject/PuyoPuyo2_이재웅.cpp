@@ -45,7 +45,8 @@ enum Scene {
 	PLAY,
 	PAUSE,
 	VICTORY,
-	DEFEAT
+	DEFEAT,
+	RANK
 };
 
 Scene scene = START;
@@ -55,29 +56,33 @@ vector<Puyo> dropPuyos;
 Puyo emptyPuyo;
 Vector3f dropVelocity(0, -2, 0);
 Vector3f zeroVector3f;
-int dx[4] = { 0, 0, -1, 1 };
-int dy[4] = { 1, -1, 0, 0 };
+vector<pair<int, bool> > ranking; // first: score, second: isNew
 int fadeOutCount = 200;
+int finalScore = 0;
 
 Light light(boundaryX/2, boundaryX, boundaryX, GL_LIGHT0);
-Material red, green, blue, yellow, purple;
-Texture titleTexture, titleTexture2, backgroundTexture, frameTexture, keyTexture, victoryTexture, defeatTexture;
+Material red, green, blue, yellow, purple, sky;
+Texture titleTexture, titleTexture2, backgroundTexture, frameTexture, victoryTexture, defeatTexture;
 
 clock_t start_t = clock(), end_t;
 clock_t blinkStart_t = clock(), blinkEnd_t;
 bool isIndicatorOn = true;
+bool isTextureBlinkerOn = true;
 bool keyboardValidator = true;
 bool removed = false;
 bool removeFinished = false;
+bool drop = false;
 
 // function declarations
 void generateRandomColor(Puyo& s, int stage);
 void drawIndicator(const Vector3f& center);
-void rotate();
+bool compareRank(pair<int, bool>& lhs, pair<int, bool>& rhs);
 bool collisionDetectionBottom(const Puyo& puyo);
 bool collisionDetectionLeft(const Puyo& puyo);
 bool collisionDetectionRight(const Puyo& puyo);
 void collisionHandling();
+void rotate();
+void setDropPuyos();
 void createPuyo();
 void initialize();
 void idle();
@@ -98,8 +103,7 @@ int main(int argc, char** argv) {
 	// init GLUT and create Window
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
-	//glutInitWindowPosition(650, 300);
-	glutInitWindowPosition(100, 100);
+	glutInitWindowPosition(650, 300);
 	glutInitWindowSize(WIDTH, HEIGHT);
 	glutCreateWindow("PuyoPuyo 2");
 	initialize();
@@ -121,7 +125,6 @@ int main(int argc, char** argv) {
 // function definitions
 void generateRandomColor(Puyo &s, int stage) {
 	Puyo::Color color = static_cast<Puyo::Color>(rand() % (stage + 3) + 1);
-	cout << "color: " << static_cast<int>(color) << endl;
 	switch (color) {
 	case Puyo::Color::RED:
 		s.setMTL(red);
@@ -143,6 +146,10 @@ void generateRandomColor(Puyo &s, int stage) {
 		s.setMTL(purple);
 		s.setColor(Puyo::Color::PURPLE);
 		break;
+	case Puyo::Color::SKY:
+		s.setMTL(sky);
+		s.setColor(Puyo::Color::SKY);
+		break;
 	default:
 		break;
 	}
@@ -160,6 +167,10 @@ void drawIndicator(const Vector3f& center) {
 		glVertex3f(center[0] + dx, center[1] + dy, center[2] + 1);
 	}
 	glEnd();
+}
+
+bool compareRank(pair<int, bool>& lhs, pair<int, bool>& rhs) {
+	return lhs.first > rhs.first;
 }
 
 bool collisionDetectionBottom(const Puyo& puyo) {
@@ -232,14 +243,6 @@ void collisionHandling() {
 	}
 }
 
-pair<int, int> getBoardIndex(const Vector3f& pos) {
-	const float zeroPos[] = { -3 * PIXEL_SIZE + RADIUS, 6 * PIXEL_SIZE - RADIUS };
-	int row = (zeroPos[1] - pos[1]) / PIXEL_SIZE;
-	int col = (pos[0] - zeroPos[0]) / PIXEL_SIZE;
-
-	return make_pair(row, col);
-}
-
 void rotate() {
 	Vector3f secondPuyoPos = startPuyo[1].getCenter();
 
@@ -301,6 +304,20 @@ void rotate() {
 	}
 }
 
+void setDropPuyos() {
+	for (int row = 11; row >= 0; row--) {
+		for (int col = 0; col < 6; col++) {
+			if (board.getPuyo(row, col).getColor() != Puyo::Color::NONE) {
+				board.getPuyo(row, col).setVelocity(dropVelocity);
+				dropPuyos.push_back(board.getPuyo(row, col));
+				board.getPuyo(row, col) = emptyPuyo;
+			}
+			else
+				board.getPuyo(row, col).setVelocity(zeroVector3f);
+		}
+	}
+}
+
 void createPuyo() {
 	Vector3f startPuyoPos[2] = { Vector3f(-RADIUS, 5 * PIXEL_SIZE + RADIUS, 0),
 								 Vector3f(-RADIUS, 5 * PIXEL_SIZE - RADIUS, 0) };
@@ -309,7 +326,6 @@ void createPuyo() {
 	Vector3f initialVelocity(0, -PIXEL_SIZE, 0);
 
 	if (startPuyo[0].getColor() == Puyo::Color::NONE) {
-		cout << "New startPuyo create start!" << endl;
 		Puyo sph1(RADIUS, 20, 20), sph2(RADIUS, 20, 20);
 
 		//init startPuyo
@@ -343,65 +359,83 @@ void createPuyo() {
 }
 
 void initialize() {
+	//read ranking.txt
+	ifstream ifs("ranking.txt");
+	long long val;
+	while (ifs >> val, !ifs.eof()) {
+		ranking.push_back(make_pair(val, false));
+	}
+	ifs.close();
 	//init materials
 	red.setAmbient(Vector4f(1, 0, 0, 0));
 	green.setAmbient(Vector4f(0, 1, 0, 0));
 	blue.setAmbient(Vector4f(0, 0, 1, 0));
 	yellow.setAmbient(Vector4f(1, 1, 0, 0));
 	purple.setAmbient(Vector4f(1, 0, 1, 0));
+	sky.setAmbient(Vector4f(0, 1, 1, 0));
 
 	//init textures
-	string titleImg = "title.png";
+	string titleImg = "image/title.png";
 	titleTexture.initializeTexture(titleImg.c_str());
 	
-	string titleImg2 = "title2.png";
+	string titleImg2 = "image/title2.png";
 	titleTexture2.initializeTexture(titleImg2.c_str());
 
-	string backgroundImg = "background_christmas_cartoon.jpg";
+	string backgroundImg = "image/background_christmas_cartoon.jpg";
 	backgroundTexture.initializeTexture(backgroundImg.c_str());
 
-	string victoryImg = "title.png";
+	string victoryImg = "image/victory.png";
 	victoryTexture.initializeTexture(victoryImg.c_str());
 
-	string defeatImg = "defeat.png";
+	string defeatImg = "image/defeat.png";
 	defeatTexture.initializeTexture(defeatImg.c_str());
 
-	string frameImg = "frame_brown.png";
+	string frameImg = "image/frame_brown.png";
 	frameTexture.initializeTexture(frameImg.c_str());
-
-	string keyImg = "arrow_key.png";
-	keyTexture.initializeTexture(keyImg.c_str());
 
 	createPuyo();
 }
 
-void setDropPuyos() {
-	for (int row = 11; row >= 0; row--) {
-		for (int col = 0; col < 6; col++) {
-			if (board.getPuyo(row, col).getColor() != Puyo::Color::NONE) {
-				board.getPuyo(row, col).setVelocity(dropVelocity);
-				dropPuyos.push_back(board.getPuyo(row, col));
-				board.getPuyo(row, col) = emptyPuyo;
-			}
-			else
-				board.getPuyo(row, col).setVelocity(zeroVector3f);
-		}
-	}
-}
-
-bool drop = false;
-bool textureBlinkerOn = true;
 void idle() {
 	if (scene == START) {
 		end_t = clock();
 		if (end_t - start_t > CLOCKS_PER_SEC / 2) {
-			textureBlinkerOn = !textureBlinkerOn;
+			isTextureBlinkerOn = !isTextureBlinkerOn;
 			start_t = end_t;
 		}
 	}
 	else if (scene == PLAY) {
 		if (board.getPuyo(0, 2).getColor() != Puyo::Color::NONE) {
 			scene = DEFEAT;
+			if (board.getStage() == 3) {
+				// score ranking.txt에 저장하기
+				finalScore = board.getScore();
+				if (finalScore > ranking.back().first) {
+					scene = RANK;
+					ranking.pop_back();
+					ranking.push_back(make_pair(finalScore, true));
+					sort(ranking.begin(), ranking.end(), compareRank);
+				}
+
+				ofstream ofs;
+				ofs.open("ranking.txt");
+				for (auto data : ranking) {
+					ofs << data.first << endl;
+				}
+				ofs.close();
+			}
+			drop = false;
+			removed = false;
+			removeFinished = false;
+			keyboardValidator = true;
+		}
+		else if (board.getScore() >= 1000 && board.getStage() < 3) {
+			// stage 3 = infinity mode
+			scene = VICTORY;
+			drop = false;
+			removed = false;
+			removeFinished = false;
+			keyboardValidator = true;
 		}
 		else if (removed) {
 			if (drop) {
@@ -431,29 +465,12 @@ void idle() {
 				}
 			}
 			else if (fadeOutCount <= 0) { // remove finished
-				int point = 0;
 				for (int row = 0; row < 12; row++) {
 					for (int col = 0; col < 6; col++) {
 						if (board.getPuyo(row, col).getRemoved()) {
 							board.getPuyo(row, col).setColor(Puyo::Color::NONE);
 							board.getPuyo(row, col).setRemoved(false);
-							point += 100;
 						}
-					}
-				}
-
-				board.addScore(board.getCombo() * point);
-				if (board.getStage() == 1) {
-					if (board.getScore() >= 1000) {
-						scene = VICTORY;
-						board.setStage(board.getStage() + 1);
-						cout << "stage: " << board.getStage() << endl;
-					}
-				}
-				else if (board.getStage() == 2) {
-					if (board.getScore() >= 1000) {
-						scene = VICTORY;
-						board.setStage(1);
 					}
 				}
 
@@ -517,16 +534,13 @@ void idle() {
 
 				//idle move
 				end_t = clock();
-				if ((end_t - start_t) > CLOCKS_PER_SEC - (board.getStage() - 1) * 100 ) {
+				if ((end_t - start_t) > CLOCKS_PER_SEC - (board.getStage() - 1) * 200 ) {
 					startPuyo.move();
 
 					start_t = end_t;
 				}
 			}
 		}
-	}
-	else if (scene == PAUSE || scene == VICTORY || scene == DEFEAT) {
-		//do nothing
 	}
 
 	glutPostRedisplay();
@@ -544,9 +558,8 @@ void display() {
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	string score_str, str;
 	if (scene == START) {
-		if (textureBlinkerOn) {
+		if (isTextureBlinkerOn) {
 			titleTexture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
 		}
 		else {
@@ -554,32 +567,25 @@ void display() {
 		}
 	}
 	else if (scene == PLAY || scene == PAUSE) {
-		if (scene == PAUSE) {
-
-		}
-
 		//Textures
 		backgroundTexture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
 		frameTexture.drawSquareWithTexture(-3 * PIXEL_SIZE - 20, -6 * PIXEL_SIZE - 30, 3 * PIXEL_SIZE + 20, 6 * PIXEL_SIZE + 30);
 		frameTexture.drawSquareWithTexture(4 * PIXEL_SIZE - 10, -20, 5 * PIXEL_SIZE + 10, 2 * PIXEL_SIZE + 20);
-		//boardTexture.drawSquareWithTexture(-3 * PIXEL_SIZE, -6 * PIXEL_SIZE, 3 * PIXEL_SIZE, 6 * PIXEL_SIZE);
-		keyTexture.drawSquareWithTexture(4 * PIXEL_SIZE, -6 * PIXEL_SIZE, 7 * PIXEL_SIZE, -4 * PIXEL_SIZE);
 
 		//Score Characters
-		score_str = to_string(board.getScore());
-		str = "      ";
+		string stage_str = "STAGE " + to_string(board.getStage());
+		if (board.getStage() == 3) {
+			stage_str += " - INFINITY MODE";
+		}
+		string score_str = to_string(board.getScore());
+		string str = "      ";
 		for (unsigned int i = 0; i < score_str.size(); i++) {
 			str[str.size() - score_str.size() + i] = score_str[i];
 		}
-		str = "SCORE:  " + str + " points";
-		float color[3] = { 1, 1, 0 };
-		displayCharacters(GLUT_BITMAP_TIMES_ROMAN_24, color, str, -boundaryX + PIXEL_SIZE / 2, boundaryY - PIXEL_SIZE);
-
-		//Key Instructions
-
-
-		//Board
-		//board.draw(WIDTH, HEIGHT);
+		score_str = "SCORE:  " + str + " points";
+		float color[3] = { 0, 0, 0 };
+		displayCharacters(GLUT_BITMAP_TIMES_ROMAN_24, color, stage_str, -boundaryX + PIXEL_SIZE / 2, boundaryY - PIXEL_SIZE);
+		displayCharacters(GLUT_BITMAP_TIMES_ROMAN_24, color, score_str, -boundaryX + PIXEL_SIZE / 2, boundaryY - 2 * PIXEL_SIZE);
 
 		//Puyos
 		glEnable(GL_LIGHTING);
@@ -603,27 +609,61 @@ void display() {
 	}
 	else if (scene == VICTORY) {
 		victoryTexture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
-		board.clear();
-		startPuyo.clear();
-		nextPuyo.clear();
-		createPuyo();
 	}
 	else if (scene == DEFEAT) {
 		defeatTexture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
-		board.clear();
-		startPuyo.clear();
-		nextPuyo.clear();
-		createPuyo();
+	}
+	else if (scene == RANK) {
+		float black[3] = { 1, 1, 1 };
+		float red[3] = { 1, 0, 0 };
+		string rankingTitle = "RANKING";
+		displayCharacters(GLUT_BITMAP_TIMES_ROMAN_24, black, rankingTitle, -1.5 * PIXEL_SIZE, boundaryY - 2 *PIXEL_SIZE);
+		string ranker;
+		for (int i = 0; i < ranking.size(); i++) {
+			ranker = to_string(i + 1) + ". " + to_string(ranking[i].first) + " points";
+			if (ranking[i].second == true)
+				displayCharacters(GLUT_BITMAP_TIMES_ROMAN_24, red, ranker, -2 * PIXEL_SIZE, boundaryY - 3 * PIXEL_SIZE - (i + 1) * PIXEL_SIZE);
+			else
+				displayCharacters(GLUT_BITMAP_TIMES_ROMAN_24, black, ranker, -2 * PIXEL_SIZE, boundaryY - 3 * PIXEL_SIZE - (i+1) * PIXEL_SIZE);
+		}
 	}
 
 	glutSwapBuffers();
 }
 
 void keyboardDown(unsigned char key, int x, int y) {
+	if (!keyboardValidator)
+		return;
+
+	if (scene == VICTORY) {
+		board.setStage(board.getStage() + 1);
+		board.clear();
+		startPuyo.clear();
+		nextPuyo.clear();
+		createPuyo();
+
+		scene = PLAY;
+		return;
+	}
+	else if (scene == DEFEAT) {
+		board.setStage(1);
+		board.clear();
+		startPuyo.clear();
+		nextPuyo.clear();
+		createPuyo();
+
+		scene = PLAY;
+		return;
+	}
+
 	switch (key) {
 	case 13: // ENTER
-		if (scene == START || scene == VICTORY || scene == DEFEAT) {
+		if (scene == START) {
+			PlaySound(TEXT("./sound/title_enter.wav"), NULL, SND_FILENAME | SND_ASYNC);
 			scene = PLAY;
+		}
+		else if (scene == RANK) {
+			scene = START;
 		}
 		break;
 	case 27: // ESC - pause on/off
@@ -635,9 +675,19 @@ void keyboardDown(unsigned char key, int x, int y) {
 		}
 		break;
 	case 32: // SPACE BAR - drop puyos
-		break;
-	case 'z': // fps 감소 (연습모드일 때만 가능하도록 추후 변경하기)
-	case 'x': // fps 증가
+		if (scene == PLAY) {
+			while (!(collisionDetectionBottom(startPuyo[0]) || collisionDetectionBottom(startPuyo[1]))) {
+				startPuyo.move();
+			}
+			if (collisionDetectionBottom(startPuyo[0])) {
+				startPuyo[0].setVelocity(zeroVector3f);
+				board.setPuyo(startPuyo[0]);
+			}
+			if (collisionDetectionBottom(startPuyo[1])) {
+				startPuyo[1].setVelocity(zeroVector3f);
+				board.setPuyo(startPuyo[1]);
+			}
+		}
 		break;
 	default:
 		break;
@@ -647,7 +697,6 @@ void keyboardDown(unsigned char key, int x, int y) {
 void specialKeyDown(int key, int x, int y) {
 	if (!keyboardValidator || scene != PLAY)
 		return;
-
 	switch (key) {
 	case GLUT_KEY_UP: // CCW rotation
 		rotate();
