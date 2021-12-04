@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <string>
 #include <queue>
@@ -7,10 +8,15 @@
 #include <cmath>
 #include <ctime>
 
+#include "Windows.h"
+#include "conio.h"
+#include "mmsystem.h"
+#pragma comment(lib, "winmm.lib")
+
 #include "Light.h"
+#include "Board.h"
 #include "Puyo.h"
 #include "PuyoPuyo.h"
-#include "Board.h"
 #include "Texture.h"
 
 using namespace std;
@@ -34,15 +40,6 @@ using namespace std;
 #define PI 3.141592
 #define SEG 180
 
-enum Color {
-	NONE,
-	RED,
-	GREEN,
-	BLUE,
-	YELLOW,
-	PURPLE
-};
-
 enum Scene {
 	START,
 	PLAY,
@@ -54,7 +51,6 @@ enum Scene {
 Scene scene = START;
 Board board(PIXEL_SIZE);
 PuyoPuyo startPuyo, nextPuyo;
-Puyo arrangedPuyos[12][6];
 vector<Puyo> dropPuyos;
 Puyo emptyPuyo;
 Vector3f dropVelocity(0, -2, 0);
@@ -65,7 +61,7 @@ int fadeOutCount = 200;
 
 Light light(boundaryX/2, boundaryX, boundaryX, GL_LIGHT0);
 Material red, green, blue, yellow, purple;
-Texture titleTexture, titleTexture2, backgroundTexture, boardTexture, frameTexture, keyTexture;
+Texture titleTexture, titleTexture2, backgroundTexture, frameTexture, keyTexture, victoryTexture, defeatTexture;
 
 clock_t start_t = clock(), end_t;
 clock_t blinkStart_t = clock(), blinkEnd_t;
@@ -75,15 +71,13 @@ bool removed = false;
 bool removeFinished = false;
 
 // function declarations
-void generateRandomColor(Puyo& s, int max);
+void generateRandomColor(Puyo& s, int stage);
 void drawIndicator(const Vector3f& center);
-void remove();
 void rotate();
 bool collisionDetectionBottom(const Puyo& puyo);
 bool collisionDetectionLeft(const Puyo& puyo);
 bool collisionDetectionRight(const Puyo& puyo);
 void collisionHandling();
-void arrangePuyo(const Puyo& puyo);
 void createPuyo();
 void initialize();
 void idle();
@@ -104,7 +98,8 @@ int main(int argc, char** argv) {
 	// init GLUT and create Window
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
-	glutInitWindowPosition(650, 300);
+	//glutInitWindowPosition(650, 300);
+	glutInitWindowPosition(100, 100);
 	glutInitWindowSize(WIDTH, HEIGHT);
 	glutCreateWindow("PuyoPuyo 2");
 	initialize();
@@ -113,7 +108,7 @@ int main(int argc, char** argv) {
 	glutDisplayFunc(display);
 	glutKeyboardFunc(keyboardDown);
 	glutSpecialFunc(specialKeyDown);
-	if(scene != PAUSE)
+	if(scene == START || scene == PLAY)
 		glutIdleFunc(idle);
 	glutReshapeFunc(reshape);
 
@@ -124,28 +119,29 @@ int main(int argc, char** argv) {
 }
 
 // function definitions
-void generateRandomColor(Puyo &s, int max) {
-	int color = rand() % max + 1;
+void generateRandomColor(Puyo &s, int stage) {
+	Puyo::Color color = static_cast<Puyo::Color>(rand() % (stage + 3) + 1);
+	cout << "color: " << static_cast<int>(color) << endl;
 	switch (color) {
-	case RED:
+	case Puyo::Color::RED:
 		s.setMTL(red);
-		s.setColor(RED);
+		s.setColor(Puyo::Color::RED);
 		break;
-	case GREEN:
+	case Puyo::Color::GREEN:
 		s.setMTL(green);
-		s.setColor(GREEN);
+		s.setColor(Puyo::Color::GREEN);
 		break;
-	case BLUE:
+	case Puyo::Color::BLUE:
 		s.setMTL(blue);
-		s.setColor(BLUE);
+		s.setColor(Puyo::Color::BLUE);
 		break;
-	case YELLOW:
+	case Puyo::Color::YELLOW:
 		s.setMTL(yellow);
-		s.setColor(YELLOW);
+		s.setColor(Puyo::Color::YELLOW);
 		break;
-	case PURPLE:
+	case Puyo::Color::PURPLE:
 		s.setMTL(purple);
-		s.setColor(PURPLE);
+		s.setColor(Puyo::Color::PURPLE);
 		break;
 	default:
 		break;
@@ -155,7 +151,7 @@ void generateRandomColor(Puyo &s, int max) {
 void drawIndicator(const Vector3f& center) {
 	/* Implement: draw all circles */
 	glColor3f(0.7f, 0.7f, 0.7f);
-	glLineWidth(2.0f);
+	glLineWidth(3.0f);
 	glBegin(GL_LINE_LOOP);
 	for (int i = 0; i <= SEG; i++) {
 		float angle = i * (2 * PI / SEG);
@@ -170,10 +166,10 @@ bool collisionDetectionBottom(const Puyo& puyo) {
 	// between puyos
 	for(int row = 0; row < 12; row++)
 		for(int col = 0; col < 6; col++)
-			if (arrangedPuyos[row][col].getColor() != NONE
-				&& (puyo && arrangedPuyos[row][col])
-				&& puyo.getCenter()[0] == arrangedPuyos[row][col].getCenter()[0]
-				&& puyo.getCenter()[1] > arrangedPuyos[row][col].getCenter()[1])
+			if (board.getPuyo(row, col).getColor() != Puyo::Color::NONE
+				&& (puyo && board.getPuyo(row, col))
+				&& puyo.getCenter()[0] == board.getPuyo(row, col).getCenter()[0]
+				&& puyo.getCenter()[1] > board.getPuyo(row, col).getCenter()[1])
 				return true;
 
 	for (const Puyo& dropPuyo : dropPuyos)
@@ -193,9 +189,9 @@ bool collisionDetectionLeft(const Puyo& puyo) {
 	// between puyos
 	for (int row = 0; row < 12; row++)
 		for (int col = 0; col < 6; col++)
-			if (arrangedPuyos[row][col].getColor() != NONE
-				&& (puyo && arrangedPuyos[row][col])
-				&& puyo.getCenter()[0] > arrangedPuyos[row][col].getCenter()[0])
+			if (board.getPuyo(row, col).getColor() != Puyo::Color::NONE
+				&& (puyo && board.getPuyo(row, col))
+				&& puyo.getCenter()[0] > board.getPuyo(row, col).getCenter()[0])
 				return true;
 
 	// lower boundary
@@ -209,9 +205,9 @@ bool collisionDetectionRight(const Puyo& puyo) {
 	// between puyos
 	for (int row = 0; row < 12; row++)
 		for (int col = 0; col < 6; col++)
-			if (arrangedPuyos[row][col].getColor() != NONE
-				&& (puyo && arrangedPuyos[row][col])
-				&& puyo.getCenter()[0] < arrangedPuyos[row][col].getCenter()[0])
+			if (board.getPuyo(row, col).getColor() != Puyo::Color::NONE
+				&& (puyo && board.getPuyo(row, col))
+				&& puyo.getCenter()[0] < board.getPuyo(row, col).getCenter()[0])
 				return true;
 
 	// lower boundary
@@ -242,64 +238,6 @@ pair<int, int> getBoardIndex(const Vector3f& pos) {
 	int col = (pos[0] - zeroPos[0]) / PIXEL_SIZE;
 
 	return make_pair(row, col);
-}
-
-void arrangePuyo(const Puyo& puyo) {
-	pair<int, int> boardIndex = getBoardIndex(puyo.getCenter());
-
-	arrangedPuyos[boardIndex.first][boardIndex.second] = puyo;
-}
-
-void remove() {
-	removed = false;
-	for (int row = 0; row < 12; row++)
-		for (int col = 0; col < 6; col++)
-			arrangedPuyos[row][col].setVisited(false);
-
-	for (int row = 11; row >= 0; row--) {
-		for (int col = 0; col < 6; col++) {
-			Puyo& p = arrangedPuyos[row][col];
-			if (!p.getVisited() && p.getColor() != NONE) {
-				queue<Puyo> q;
-				q.push(p);
-				p.setVisited(true);
-
-				vector<pair<int, int> > idxVec;
-				idxVec.push_back(make_pair(getBoardIndex(p.getCenter()).first, getBoardIndex(p.getCenter()).second));
-
-				int count = 0;
-				while (!q.empty()) {
-					int y = getBoardIndex(q.front().getCenter()).first;
-					int x = getBoardIndex(q.front().getCenter()).second;
-					int color = q.front().getColor();
-					q.pop();
-					for (int i = 0; i < 4; i++) {
-						int ny = y + dy[i];
-						int nx = x + dx[i];
-
-						if (ny >= 0 && ny < 12 && nx >= 0 && nx < 6) {
-							Puyo& np = arrangedPuyos[ny][nx];
-							if (!np.getVisited() && np.getColor() == color) {
-								q.push(np);
-								idxVec.push_back(make_pair(ny, nx));
-								np.setVisited(true);
-							}
-						}
-					}
-				}
-
-				if (idxVec.size() >= 4) {
-					for (auto& idx : idxVec) {
-						cout << "제거할 뿌요들: ";
-						cout << idx.first << ", " << idx.second << endl;
-						arrangedPuyos[idx.first][idx.second].setRemoved(true);
-					}
-
-					removed = true;
-				}
-			}
-		}
-	}
 }
 
 void rotate() {
@@ -370,26 +308,27 @@ void createPuyo() {
 								Vector3f(4.5 * PIXEL_SIZE, 0.5 * PIXEL_SIZE, 0) };
 	Vector3f initialVelocity(0, -PIXEL_SIZE, 0);
 
-	if (startPuyo[0].getColor() == NONE) {
+	if (startPuyo[0].getColor() == Puyo::Color::NONE) {
+		cout << "New startPuyo create start!" << endl;
 		Puyo sph1(RADIUS, 20, 20), sph2(RADIUS, 20, 20);
 
 		//init startPuyo
 		sph1.setCenter(startPuyoPos[0]);
 		sph1.setVelocity(initialVelocity);
-		generateRandomColor(sph1, 4);
+		generateRandomColor(sph1, board.getStage());
 
 		sph2.setCenter(startPuyoPos[1]);
 		sph2.setVelocity(initialVelocity);
-		generateRandomColor(sph2, 4);
+		generateRandomColor(sph2, board.getStage());
 
 		startPuyo.setPuyos(sph1, sph2);
 
 		//init nextPuyo
 		sph1.setCenter(nextPuyoPos[0]);
-		generateRandomColor(sph1, 4);
+		generateRandomColor(sph1, board.getStage());
 
 		sph2.setCenter(nextPuyoPos[1]);
-		generateRandomColor(sph2, 4);
+		generateRandomColor(sph2, board.getStage());
 
 		nextPuyo.setPuyos(sph1, sph2);
 	}
@@ -398,8 +337,8 @@ void createPuyo() {
 		startPuyo[0].setCenter(startPuyoPos[0]);
 		startPuyo[1].setCenter(startPuyoPos[1]);
 
-		generateRandomColor(nextPuyo[0], 4);
-		generateRandomColor(nextPuyo[1], 4);
+		generateRandomColor(nextPuyo[0], board.getStage());
+		generateRandomColor(nextPuyo[1], board.getStage());
 	}
 }
 
@@ -421,8 +360,11 @@ void initialize() {
 	string backgroundImg = "background_christmas_cartoon.jpg";
 	backgroundTexture.initializeTexture(backgroundImg.c_str());
 
-	//string boardImg = "background_board.png";
-	//boardTexture.initializeTexture(boardImg.c_str());
+	string victoryImg = "title.png";
+	victoryTexture.initializeTexture(victoryImg.c_str());
+
+	string defeatImg = "defeat.png";
+	defeatTexture.initializeTexture(defeatImg.c_str());
 
 	string frameImg = "frame_brown.png";
 	frameTexture.initializeTexture(frameImg.c_str());
@@ -434,99 +376,40 @@ void initialize() {
 }
 
 void setDropPuyos() {
-	for (int i = 11; i >= 0; i--) {
-		for (int j = 0; j < 6; j++) {
-			if (arrangedPuyos[i][j].getColor() != NONE) {
-				arrangedPuyos[i][j].setVelocity(dropVelocity);
-				dropPuyos.push_back(arrangedPuyos[i][j]);
-				arrangedPuyos[i][j] = emptyPuyo;
+	for (int row = 11; row >= 0; row--) {
+		for (int col = 0; col < 6; col++) {
+			if (board.getPuyo(row, col).getColor() != Puyo::Color::NONE) {
+				board.getPuyo(row, col).setVelocity(dropVelocity);
+				dropPuyos.push_back(board.getPuyo(row, col));
+				board.getPuyo(row, col) = emptyPuyo;
 			}
 			else
-				arrangedPuyos[i][j].setVelocity(zeroVector3f);
+				board.getPuyo(row, col).setVelocity(zeroVector3f);
 		}
 	}
-
-	cout << "drop puyo count: " << dropPuyos.size() << endl;
-}
-
-void rearrangeBoard() {
-	cout << "rearrange start" << endl;
-	vector<Puyo> v;
-	for (int i = 0; i < 12; i++)
-		for (int j = 0; j < 6; j++)
-			if (arrangedPuyos[i][j].getColor() != NONE)
-				v.push_back(arrangedPuyos[i][j]);
-
-	cout << "Before rearrange" << endl;
-	for (int i = 0; i < 12; i++) {
-		for (int j = 0; j < 6; j++) {
-			arrangedPuyos[i][j].setColor(NONE);
-			cout << arrangedPuyos[i][j].getColor() << " ";
-		}
-		cout << endl;
-	}
-	cout << endl;
-
-	for (const Puyo& puyo : v) {
-		arrangePuyo(puyo);
-	}
-
-	cout << "After rearrange" << endl;
-	for (int i = 0; i < 12; i++) {
-		for (int j = 0; j < 6; j++) {
-			cout << (Color)arrangedPuyos[i][j].getColor() << " ";
-		}
-		cout << endl;
-	}
-	cout << endl;
 }
 
 bool drop = false;
-bool blinker = true;
+bool textureBlinkerOn = true;
 void idle() {
 	if (scene == START) {
 		end_t = clock();
 		if (end_t - start_t > CLOCKS_PER_SEC / 2) {
-			blinker = !blinker;
+			textureBlinkerOn = !textureBlinkerOn;
 			start_t = end_t;
 		}
 	}
 	else if (scene == PLAY) {
-		if (arrangedPuyos[0][2].getColor() != NONE) {
+		if (board.getPuyo(0, 2).getColor() != Puyo::Color::NONE) {
 			scene = DEFEAT;
 		}
 		else if (removed) {
 			if (drop) {
-				cout << "drop start!" << endl;
-				//setDropPuyos();
-				//if (dropPuyos.empty()) {
-				//	for (int i = 11; i >= 0; i--) {
-				//		for (int j = 0; j < 6; j++) {
-				//			if (arrangedPuyos[i][j].getColor() != NONE) {
-				//				if (!collisionDetectionBottom(arrangedPuyos[i][j])) {
-				//					cout << "drop puyo's address: ";
-				//					cout << i << ", " << j << endl;
-				//					dropPuyos.push_back(arrangedPuyos[i][j]);
-				//					arrangedPuyos[i][j].setColor(NONE);
-				//					/// arrangeedPuyos 인덱스 바꿀 방법 생각해보기
-				//					/// readyToDrop 함수에서 뿌요들 vector에 다 집어넣고
-				//					/// drop 끝난 이후에 다시 위치맞춰서 arrangedPuyos에 넣어주기.
-				//				}
-				//			}
-				//		}
-				//	}
-				//}
-				if (dropPuyos.empty()) {
-					cout << "dropPuyo empty" << endl;
+				if (dropPuyos.empty())
 					setDropPuyos();
-					for (Puyo& puyo : dropPuyos)
-						cout << getBoardIndex(puyo.getCenter()).first << ", " << getBoardIndex(puyo.getCenter()).second << endl;
-				}
 
-				cout << "drop ongoing" << endl;
 				int moveCount = 0;
 				for (Puyo& puyo : dropPuyos) {
-					cout << getBoardIndex(puyo.getCenter()).first << ", " << getBoardIndex(puyo.getCenter()).second << endl;
 					if (!collisionDetectionBottom(puyo)) {
 						puyo.move();
 						moveCount++;
@@ -537,26 +420,40 @@ void idle() {
 				}
 
 				if (moveCount == 0) {
-					//rearrangeBoard();
 					for (const Puyo& puyo : dropPuyos)
-						arrangePuyo(puyo);
+						board.setPuyo(puyo);
 					dropPuyos.clear();
 
 					fadeOutCount = 200;
 					removed = false;
 					drop = false;
 					removeFinished = true;
-					cout << "drop end" << endl;
 				}
 			}
-			else if (fadeOutCount <= 0) {
-				for (int i = 0; i < 12; i++) {
-					for (int j = 0; j < 6; j++) {
-						if (arrangedPuyos[i][j].getRemoved()) {
-							cout << "fadeout puyo's address: ";
-							cout << i << ", " << j << endl;
-							arrangedPuyos[i][j].setColor(NONE);
+			else if (fadeOutCount <= 0) { // remove finished
+				int point = 0;
+				for (int row = 0; row < 12; row++) {
+					for (int col = 0; col < 6; col++) {
+						if (board.getPuyo(row, col).getRemoved()) {
+							board.getPuyo(row, col).setColor(Puyo::Color::NONE);
+							board.getPuyo(row, col).setRemoved(false);
+							point += 100;
 						}
+					}
+				}
+
+				board.addScore(board.getCombo() * point);
+				if (board.getStage() == 1) {
+					if (board.getScore() >= 1000) {
+						scene = VICTORY;
+						board.setStage(board.getStage() + 1);
+						cout << "stage: " << board.getStage() << endl;
+					}
+				}
+				else if (board.getStage() == 2) {
+					if (board.getScore() >= 1000) {
+						scene = VICTORY;
+						board.setStage(1);
 					}
 				}
 
@@ -566,10 +463,10 @@ void idle() {
 				isIndicatorOn = false;
 				keyboardValidator = false;
 
-				for (int i = 0; i < 12; i++) {
-					for (int j = 0; j < 6; j++) {
-						if (arrangedPuyos[i][j].getRemoved()) {
-							arrangedPuyos[i][j].fadeOut(fadeOutCount);
+				for (int row = 0; row < 12; row++) {
+					for (int col = 0; col < 6; col++) {
+						if (board.getPuyo(row, col).getRemoved()) {
+							board.getPuyo(row, col).fadeOut(fadeOutCount);
 							fadeOutCount--;
 						}
 					}
@@ -581,15 +478,16 @@ void idle() {
 			collisionHandling();
 			if (startPuyo[0].getVelocity()[1] == 0 && startPuyo[1].getVelocity()[1] == 0) {
 				if (!removed && !removeFinished) {
-					arrangePuyo(startPuyo[0]);
-					arrangePuyo(startPuyo[1]);
+					board.setPuyo(startPuyo[0]);
+					board.setPuyo(startPuyo[1]);
 					keyboardValidator = true;
 					removeFinished = true;
 				}
 
-				remove();
+				removed = board.hasPuyoToRemove();
 				if (!removed && removeFinished) {
 					createPuyo();
+					board.setCombo(0);
 					keyboardValidator = true;
 					removeFinished = false;
 				}
@@ -619,7 +517,7 @@ void idle() {
 
 				//idle move
 				end_t = clock();
-				if ((end_t - start_t) > CLOCKS_PER_SEC) {
+				if ((end_t - start_t) > CLOCKS_PER_SEC - (board.getStage() - 1) * 100 ) {
 					startPuyo.move();
 
 					start_t = end_t;
@@ -627,7 +525,7 @@ void idle() {
 			}
 		}
 	}
-	else if (scene == PAUSE) {
+	else if (scene == PAUSE || scene == VICTORY || scene == DEFEAT) {
 		//do nothing
 	}
 
@@ -637,7 +535,7 @@ void idle() {
 void displayCharacters(void* font, float color[3], string str, float x, float y) {
 	glColor3f(color[0], color[1], color[2]);
 	glRasterPos2f(x, y);
-	for (auto i = 0; i < str.size(); i++)
+	for (unsigned int i = 0; i < str.size(); i++)
 		glutBitmapCharacter(font, str[i]);
 }
 
@@ -648,7 +546,7 @@ void display() {
 
 	string score_str, str;
 	if (scene == START) {
-		if (blinker) {
+		if (textureBlinkerOn) {
 			titleTexture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
 		}
 		else {
@@ -670,7 +568,7 @@ void display() {
 		//Score Characters
 		score_str = to_string(board.getScore());
 		str = "      ";
-		for (int i = 0; i < score_str.size(); i++) {
+		for (unsigned int i = 0; i < score_str.size(); i++) {
 			str[str.size() - score_str.size() + i] = score_str[i];
 		}
 		str = "SCORE:  " + str + " points";
@@ -693,8 +591,8 @@ void display() {
 		nextPuyo.draw();
 		for (int row = 0; row < 12; row++)
 			for (int col = 0; col < 6; col++)
-				if (arrangedPuyos[row][col].getColor() != NONE)
-					arrangedPuyos[row][col].draw();
+				if (board.getPuyo(row, col).getColor() != Puyo::Color::NONE)
+					board.getPuyo(row, col).draw();
 		for (const Puyo& puyo : dropPuyos)
 			puyo.draw();
 		glDisable(GL_DEPTH_TEST);
@@ -704,10 +602,18 @@ void display() {
 			drawIndicator(startPuyo[1].getCenter());
 	}
 	else if (scene == VICTORY) {
-
+		victoryTexture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
+		board.clear();
+		startPuyo.clear();
+		nextPuyo.clear();
+		createPuyo();
 	}
 	else if (scene == DEFEAT) {
-		cout << "defeat" << endl;
+		defeatTexture.drawSquareWithTexture(-boundaryX, -boundaryY, boundaryX, boundaryY);
+		board.clear();
+		startPuyo.clear();
+		nextPuyo.clear();
+		createPuyo();
 	}
 
 	glutSwapBuffers();
@@ -716,7 +622,7 @@ void display() {
 void keyboardDown(unsigned char key, int x, int y) {
 	switch (key) {
 	case 13: // ENTER
-		if (scene == START) {
+		if (scene == START || scene == VICTORY || scene == DEFEAT) {
 			scene = PLAY;
 		}
 		break;
@@ -739,7 +645,7 @@ void keyboardDown(unsigned char key, int x, int y) {
 }
 
 void specialKeyDown(int key, int x, int y) {
-	if (!keyboardValidator || scene == PAUSE)
+	if (!keyboardValidator || scene != PLAY)
 		return;
 
 	switch (key) {
