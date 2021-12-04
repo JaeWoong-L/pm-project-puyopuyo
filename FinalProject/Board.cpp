@@ -99,10 +99,14 @@ bool Board::hasPuyoToRemove() {
 				}
 
 				if (idxVec.size() >= 4) {
-					for (auto& idx : idxVec)
+					int point = 0;
+					for (auto& idx : idxVec) {
 						arrangedPuyos[idx.first][idx.second].setRemoved(true);
+						point += 100;
+					}
 
 					combo++;
+					score += combo * point;
 					ret = true;
 				}
 			}
