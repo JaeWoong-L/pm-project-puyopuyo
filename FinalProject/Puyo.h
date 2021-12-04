@@ -12,7 +12,8 @@ public:
 		GREEN,
 		BLUE,
 		YELLOW,
-		PURPLE
+		PURPLE,
+		SKY
 	};
 
 	Puyo();
