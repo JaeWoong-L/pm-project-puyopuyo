@@ -1,20 +1,36 @@
 #pragma once
 
-#include "GL/glut.h"
+#include <utility>
+#include "Puyo.h"
+
+using namespace std;
 
 class Board {
 public:
 	Board(int ps);
-	void draw(const int width, const int height) const;
-	void remove();
+
+	void setPuyo(const Puyo& puyo);
+	void setStage(int s);
+	void setCombo(int c);
+	void nextStage();
 	void addScore(int sc);
-	const int getScore() const;
+	void addCombo();
+	
+	Puyo& getPuyo(int row, int col);
+	int getStage() const;
+	int getScore() const;
+	int getCombo() const;
+
+	pair<int, int> getPuyoIndex(const Puyo& puyo) const;
+	bool hasPuyoToRemove();
+	void clear();
 
 private:
-	char board[12][6];
-	bool visited[12][6];
+	Puyo arrangedPuyos[12][6];
 	int pixelSize;
-	float margin;
 	int score;
 	int combo;
+	int stage;
+	int dx[4];
+	int dy[4];
 };
